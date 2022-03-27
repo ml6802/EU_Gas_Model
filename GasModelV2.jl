@@ -121,6 +121,8 @@ function initialize_model!(model::Model, folder::AbstractString, demand_reduc::F
     # Introduce objective variable shortfall + excess
     @variable(model, shortfall[cc = 1:leng, t = 1:nmonth]>=0)
     @variable(model, excess[cc = 1:leng, t = 1:nmonth]>=0)
+
+    # Ensure shortfall is less than demand
     @constraint(model, shortfall_c[cc = 1:leng, t = 1:nmonth], shortfall[cc,t] <= demand_eq[cc,t])
 
     # Overall gas balance for each country in each month
@@ -133,12 +135,12 @@ function initialize_model!(model::Model, folder::AbstractString, demand_reduc::F
     @variable(model, imports_tot[cc = 1:leng, rte = 1:6])
     @constraint(model, import_adder[cc = 1:leng, rte = 1:6], imports_tot[cc, rte] == sum(import_country[cc,t,rte] for t in 1:nmonth))
 
-    # Monthly transmission imports - look at this
+    # Monthly transmission imports
 
     @constraint(model, c_trans_in_country[cct = 1:leng, t=1:nmonth, ccf = 1:leng], trans_in_country[cct,t,ccf] <= Days_per_month[t]*trans_in_df[cct,ccf])
     @constraint(model, c_trans_in_month[cct = 1:leng, t = 1:nmonth], trans_in[cct,t] == sum(trans_in_country[cct,t,ccf] for ccf in 1:leng))
 
-    # Monthly transmission exports - look at this
+    # Monthly transmission exports
     @constraint(model, c_trans_out_country[ccf = 1:leng, t=1:nmonth, cct = 1:leng], trans_out_country[ccf,t,cct] <= Days_per_month[t]*trans_out_df[ccf,cct])
     @constraint(model, c_trans_out_month[ccf = 1:leng, t = 1:nmonth], trans_out[ccf,t] == sum(trans_out_country[ccf,t,cct] for cct in 1:leng))
 
