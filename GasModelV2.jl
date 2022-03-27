@@ -87,6 +87,8 @@ function initialize_model!(model::Model, folder::AbstractString, demand_reduc::V
     nmonth = 12
     P = 10^10
     Days_per_month = [31,28,31,30,31,30,31,31,30,31,30,31]
+    EU_tot_sec = [.15, .171, .254, .117, .308]
+    aggregate_demand_reduc = sum(EU_tot_sec[sec]*demand_reduc[sec] for sec in 1:5)
     max_withdraw_day = 2022.401074
     max_inject_day = 1164.765988
 
@@ -118,8 +120,8 @@ function initialize_model!(model::Model, folder::AbstractString, demand_reduc::V
     @constraint(model, C_stor_init[cc = 1:leng], storage_fill_prev[cc,1] == .537stor_cap[cc]) #53.7% full as of Jan 1
     @constraint(model, C_stor_cont[cc = 1:leng, t = 1:nmonth], storage_fill_prev[cc, t+1] == storage_fill[cc, t])
     @constraint(model, C_stor_bal[cc = 1:leng, t = 1:nmonth], storage_fill[cc,t] == storage_fill_prev[cc,t] + storage_in[cc,t] - storage_out[cc,t])
-    @constraint(model, stor_fill_req[cc = 1:leng], storage_fill[cc, 10] >= 0.9stor_cap[cc]) # EU Legislation
-    #@constraint(model, stor_fill_req[cc = 1:leng], storage_fill[cc, 10] >= demand_reduc*.77stor_cap[cc])
+    #@constraint(model, stor_fill_req[cc = 1:leng], storage_fill[cc, 10] >= 0.9stor_cap[cc]) # EU Legislation
+    @constraint(model, stor_fill_req[cc = 1:leng], storage_fill[cc, 10] >= aggregate_demand_reduc*.77stor_cap[cc])
 
     @expression(model, storage_out_tot[t = 1:nmonth], sum(storage_out[cc,t] for cc in 1:leng))
     @expression(model, storage_in_tot[t = 1:nmonth], sum(storage_in[cc,t] for cc in 1:leng))
@@ -223,7 +225,7 @@ function transposer(df::DataFrame) # transposes and removes country names
 end
 
 function main()
-    demand_reduc = [0.1, 0.8, 0.9, 0.8, 0.8] # Format - new demand as proportion of old demand. Sector order: Electricity, CHP, Industry, Households, Commercial
+    demand_reduc = [0.1, 0.92, 0.95, 0.92, 0.92] # Format - new demand as proportion of old demand. Sector order: Electricity, CHP, Industry, Households, Commercial
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
 
     # Creating model
