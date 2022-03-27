@@ -14,6 +14,7 @@ function initialize_data(folder::AbstractString)
     production = "Production"*Base_year*".csv"
     storage = "Storage.csv"
     countrylist = "CountryList.csv"
+    sector = "SectorUse.csv"
     LNG_year = raw"22" # Options - 21, 22, 25, 30
     stor_year = raw"22" # Options - 22, 25, 30
 
@@ -37,10 +38,13 @@ function initialize_data(folder::AbstractString)
     stor_path = joinpath(input_path, storage)
     stor_df = CSV.read(stor_path, header=1, DataFrame)
 
+    sector_path = joinpath(input_path, sector)
+    sector_df = CSV.read(sector_path, header=1, DataFrame)
+
     check_LNG_year!(imports_df, LNG_year)
     check_stor_year!(stor_df, stor_year)
 
-    return stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df
+    return stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df
 end   
 
 function check_LNG_year!(imports_df::DataFrame, LNG_year::AbstractString)
@@ -75,9 +79,9 @@ function check_stor_year!(stor_df::DataFrame, stor_year::AbstractString)
     end
 end
 
-function initialize_model!(model::Model, folder::AbstractString, demand_reduc::Float64)
+function initialize_model!(model::Model, folder::AbstractString, demand_reduc::Vector{Float64})
     # initialize dfs
-    stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df = initialize_data(folder)
+    stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df = initialize_data(folder)
     # Introduce all countries demand
     leng = nrow(demand_df)
     nmonth = 12
@@ -86,8 +90,12 @@ function initialize_model!(model::Model, folder::AbstractString, demand_reduc::F
     max_withdraw_day = 2022.401074
     max_inject_day = 1164.765988
 
+
     # Setting demands and production up - equality to start with
-    @expression(model, demand_eq[cc = 1:leng, t = 1:nmonth], demand_reduc*demand_df[cc,t])
+    @expression(model, demand_sector[cc = 1:leng, t = 1:nmonth, sec = 1:5], demand_reduc[sec]*sector_df[cc,sec]*demand_df[cc,t])
+    @expression(model, demand_eq[cc = 1:leng, t = 1:nmonth], sum(demand_sector[cc,t,sec] for sec in 1:5))
+
+    # @expression(model, demand_eq[cc = 1:leng, t = 1:nmonth], demand_reduc*demand_df[cc,t])
     @expression(model, prod_eq[cc = 1:leng, t = 1:nmonth], prod_df[cc,t])
     
     # Introduce import capacity things
@@ -121,6 +129,8 @@ function initialize_model!(model::Model, folder::AbstractString, demand_reduc::F
     # Introduce objective variable shortfall + excess
     @variable(model, shortfall[cc = 1:leng, t = 1:nmonth]>=0)
     @variable(model, excess[cc = 1:leng, t = 1:nmonth]>=0)
+
+    # Ensure shortfall is less than demand
     @constraint(model, shortfall_c[cc = 1:leng, t = 1:nmonth], shortfall[cc,t] <= demand_eq[cc,t])
 
     # Overall gas balance for each country in each month
@@ -133,12 +143,12 @@ function initialize_model!(model::Model, folder::AbstractString, demand_reduc::F
     @variable(model, imports_tot[cc = 1:leng, rte = 1:6])
     @constraint(model, import_adder[cc = 1:leng, rte = 1:6], imports_tot[cc, rte] == sum(import_country[cc,t,rte] for t in 1:nmonth))
 
-    # Monthly transmission imports - look at this
+    # Monthly transmission imports
 
     @constraint(model, c_trans_in_country[cct = 1:leng, t=1:nmonth, ccf = 1:leng], trans_in_country[cct,t,ccf] <= Days_per_month[t]*trans_in_df[cct,ccf])
     @constraint(model, c_trans_in_month[cct = 1:leng, t = 1:nmonth], trans_in[cct,t] == sum(trans_in_country[cct,t,ccf] for ccf in 1:leng))
 
-    # Monthly transmission exports - look at this
+    # Monthly transmission exports
     @constraint(model, c_trans_out_country[ccf = 1:leng, t=1:nmonth, cct = 1:leng], trans_out_country[ccf,t,cct] <= Days_per_month[t]*trans_out_df[ccf,cct])
     @constraint(model, c_trans_out_month[ccf = 1:leng, t = 1:nmonth], trans_out[ccf,t] == sum(trans_out_country[ccf,t,cct] for cct in 1:leng))
 
@@ -213,7 +223,7 @@ function transposer(df::DataFrame) # transposes and removes country names
 end
 
 function main()
-    demand_reduc = 0.802
+    demand_reduc = [0.1, 0.8, 0.9, 0.8, 0.8] # Format - new demand as proportion of old demand. Sector order: Electricity, CHP, Industry, Households, Commercial
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
 
     # Creating model
@@ -223,6 +233,7 @@ function main()
     # Solve
     optimize!(model)
 
+    #@show value.(model[:demand_sector])/1000
     @show value.(model[:shortfall_sum])/1000
     @show sum(value.(model[:shortfall_sum])/1000)
     @show sum(value.(model[:imports_tot]))/1000
