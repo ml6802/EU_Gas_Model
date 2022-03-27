@@ -146,11 +146,15 @@ function initialize_model!(model::Model, folder::AbstractString, demand_reduc::F
     @constraint(model, c_trans_in_match[cct = 1:leng, t = 1:nmonth, ccf = 1:leng], trans_in_country[cct,t,ccf] == trans_out_country[ccf, t, cct]) 
     
     # Objectives
-    @expression(model, Eshortfall_sum_pC[cc = 1:leng], sum(P*shortfall[cc,t] for t in 1:nmonth))
+    @expression(model, shortfall_prop[cc= 1:leng, t = 1:nmonth], (1/(demand_eq[cc,t])*shortfall[cc,t]))
+    @expression(model, shortfall_prop_sum[cc = 1:leng], sum((1/12)*shortfall_prop[cc,t] for t in 1:nmonth))
+    @expression(model, shortfall_prop_P[cc = 1:leng], sum(P*shortfall_prop[cc,t] for t in 1:nmonth))
+    #@expression(model, Eshortfall_sum_pC[cc = 1:leng], sum(P*shortfall[cc,t] for t in 1:nmonth))
     @expression(model, shortfall_sum[cc = 1:leng], sum(shortfall[cc,t] for t in 1:nmonth))
-    @expression(model, Eshortfall_total, sum(Eshortfall_sum_pC[cc] for cc in 1:leng))
+    #@expression(model, Eshortfall_total, sum(Eshortfall_sum_pC[cc] for cc in 1:leng))
     @expression(model, excess_tot[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
-    @expression(model, obj, sum(excess_tot[cc] + Eshortfall_sum_pC[cc] for cc in 1:leng))
+    #@expression(model, obj, sum(excess_tot[cc] + Eshortfall_sum_pC[cc] for cc in 1:leng))
+    @expression(model, obj, sum(excess_tot[cc] + P*shortfall_prop_P[cc] for cc in 1:leng))
     @objective(model, Min, obj)
 
     return model, country_df
@@ -220,6 +224,7 @@ function main()
     @show value.(model[:shortfall_sum])/1000
     @show sum(value.(model[:shortfall_sum])/1000)
     @show sum(value.(model[:imports_tot]))/1000
+    @show value.(model[:shortfall_prop_sum])
 
     printout(folder, model, country_df)
 end
