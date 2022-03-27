@@ -25,7 +25,10 @@ function initialize_data(folder::AbstractString)
     imports_df = CSV.read(imp_path, header=1, DataFrame)
 
     trans_path = joinpath(input_path, trans)
-    trans_df = CSV.read(trans_path, header=1, DataFrame) # in mcm per day - col is country from, row is country to
+    trans_in_df = CSV.read(trans_path, header=1, DataFrame) # in mcm per day - col is country from, row is country to
+    print(trans_in_df)
+    trans_out_df = transposer(trans_in_df)
+    print(trans_out_df)
 
     demand_path = joinpath(input_path, demand)
     demand_df = CSV.read(demand_path, header=1, DataFrame)
@@ -65,12 +68,12 @@ function initialize_data(folder::AbstractString)
     elseif stor_year == raw"30"
         select!(stor_df, :3)
     end
-    return stor_df, prod_df, demand_df, trans_df, imports_df, country_df
+    return stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df
 end   
 
 function initialize_model!(model::Model, folder::AbstractString, demand_reduc::Float64)
     # initialize dfs
-    stor_df, prod_df, demand_df, trans_df, imports_df, country_df = initialize_data(folder)
+    stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df = initialize_data(folder)
     # Introduce all countries demand
     leng = nrow(demand_df)
     nmonth = 12
@@ -128,11 +131,11 @@ function initialize_model!(model::Model, folder::AbstractString, demand_reduc::F
 
     # Monthly transmission imports - look at this
 
-    @constraint(model, c_trans_in_country[cct = 1:leng, t=1:nmonth, ccf = 1:leng], trans_in_country[cct,t,ccf] <= Days_per_month[t]*trans_df[cct,ccf])
+    @constraint(model, c_trans_in_country[cct = 1:leng, t=1:nmonth, ccf = 1:leng], trans_in_country[cct,t,ccf] <= Days_per_month[t]*trans_in_df[cct,ccf])
     @constraint(model, c_trans_in_month[cct = 1:leng, t = 1:nmonth], trans_in[cct,t] == sum(trans_in_country[cct,t,ccf] for ccf in 1:leng))
 
     # Monthly transmission exports - look at this
-    @constraint(model, c_trans_out_country[ccf = 1:leng, t=1:nmonth, cct = 1:leng], trans_out_country[ccf,t,cct] <= Days_per_month[t]*trans_df[ccf,cct])
+    @constraint(model, c_trans_out_country[ccf = 1:leng, t=1:nmonth, cct = 1:leng], trans_out_country[ccf,t,cct] <= Days_per_month[t]*trans_out_df[ccf,cct])
     @constraint(model, c_trans_out_month[ccf = 1:leng, t = 1:nmonth], trans_out[ccf,t] == sum(trans_out_country[ccf,t,cct] for cct in 1:leng))
 
     # Monthly transmission matches on each side of the pipe
@@ -182,6 +185,21 @@ function printout(folder::AbstractString, model::Model, country_df::DataFrame) #
     CSV.write(stor_out_path, storage_out_df)
     CSV.write(shortfall_path, country_df)
     CSV.write(sf_month_path, sf_month_df)
+end
+
+function dftranspose(df::DataFrame, withhead::Bool)
+	if withhead
+		colnames = cat(:Row, Symbol.(df[!,1]), dims=1)
+		return DataFrame([[names(df)]; collect.(eachrow(df))], colnames)
+	else
+		return DataFrame([[names(df)]; collect.(eachrow(df))], [:Row; Symbol.("x",axes(df, 1))])
+	end
+end # End dftranpose()
+
+function transposer(df::DataFrame) # transposes and removes country names
+    t = dftranspose(df, false)
+    select!(t, Not(:1))
+    return t
 end
 
 function main()
