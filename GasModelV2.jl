@@ -14,7 +14,7 @@ function initialize_data(folder::AbstractString)
     production = "Production"*Base_year*".csv"
     storage = "Storage.csv"
     countrylist = "CountryList.csv"
-    LNG_year = raw"30" # Options - 21, 22, 25, 30
+    LNG_year = raw"22" # Options - 21, 22, 25, 30
     stor_year = raw"22" # Options - 22, 25, 30
 
 
@@ -26,10 +26,8 @@ function initialize_data(folder::AbstractString)
 
     trans_path = joinpath(input_path, trans)
     trans_in_df = CSV.read(trans_path, header=1, DataFrame) # in mcm per day - col is country from, row is country to
-    print(trans_in_df)
     trans_out_df = transposer(trans_in_df)
-    print(trans_out_df)
-
+ 
     demand_path = joinpath(input_path, demand)
     demand_df = CSV.read(demand_path, header=1, DataFrame)
 
@@ -39,6 +37,13 @@ function initialize_data(folder::AbstractString)
     stor_path = joinpath(input_path, storage)
     stor_df = CSV.read(stor_path, header=1, DataFrame)
 
+    check_LNG_year!(imports_df, LNG_year)
+    check_stor_year!(stor_df, stor_year)
+
+    return stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df
+end   
+
+function check_LNG_year!(imports_df::DataFrame, LNG_year::AbstractString)
     # Check LNG year
     if LNG_year == raw"21"
         select!(imports_df, Not(:LNG_2022))
@@ -57,9 +62,9 @@ function initialize_data(folder::AbstractString)
         select!(imports_df, Not(:LNG_2022))
         select!(imports_df, Not(:LNG_2025))
     end
+end
 
-
-
+function check_stor_year!(stor_df::DataFrame, stor_year::AbstractString)
     #Check Storage year
     if stor_year == raw"22"
         select!(stor_df, :1)
@@ -68,8 +73,7 @@ function initialize_data(folder::AbstractString)
     elseif stor_year == raw"30"
         select!(stor_df, :3)
     end
-    return stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df
-end   
+end
 
 function initialize_model!(model::Model, folder::AbstractString, demand_reduc::Float64)
     # initialize dfs
