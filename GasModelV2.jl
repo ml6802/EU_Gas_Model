@@ -166,7 +166,9 @@ function printout(folder::AbstractString, model::Model, country_df::DataFrame) #
 
     x = value.(model[:shortfall_sum])/1000
     y = value.(model[:excess_tot])/1000
+    r = value.(model[:shortfall_prop_sum])
     country_df[!, "Shortfall"] = x
+    country_df[!, "Shortfall/Demand"] = r
     country_df[!, "Excess"] = y
     z = value.(model[:storage_fill])/1000
     m = value.(model[:shortfall])/1000
