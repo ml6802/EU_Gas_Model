@@ -109,6 +109,7 @@ function initialize_model!(model::Model, folder::AbstractString)
     phased_LNG = true
     nrte = ncol(imports_df) - 1
     Days_per_month = [31,28,31,30,31,30,31,31,30,31,30,31,31,28,31,30,31,30,31,31,30,31,30,31]
+    rus_df = [1,1,0.8,0.7,0.6,0.5,0.4,0.3,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
     # EU_tot_sec = [.15, .171, .254, .117, .308] # change to average of demand_df
     max_withdraw_day = 2022.401074
     max_inject_day = 1164.765988
@@ -178,7 +179,7 @@ function initialize_model!(model::Model, folder::AbstractString)
     end
     
     rte_russia = nrte-1
-    @constraint(model, rus_phase[cc = 1:leng, t = 1:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[1,t]*import_23[cc,rte_russia]) # Russian gas phaseout
+    @constraint(model, rus_phase[cc = 1:leng, t = 1:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_23[cc,rte_russia]) # Russian gas phaseout
     @constraint(model, import_month[cc = 1:leng, t = 1:nmonth], import_in_month[cc,t] == sum(import_country[cc,t,rte] for rte in 1:nrte))
 
     @expression(model, imports_tot[cc = 1:leng, rte = 1:nrte], sum(import_country[cc,t,rte] for t in 1:nmonth))
@@ -231,7 +232,7 @@ function debugInfeas(model::Model)
     end
 end
 
-function printout(folder::AbstractString, model::Model, country_df::DataFrame) # Print outputs
+function printout(folder::AbstractString, model::Model, country_df::DataFrame, nmonths::Int64) # Print outputs
     output = "Outputs"
     output_path = joinpath(folder, output)
     conv_mcm_bcm = 1/1000
@@ -259,6 +260,15 @@ function printout(folder::AbstractString, model::Model, country_df::DataFrame) #
     imports_out = value.(model[:imports_tot])*conv_mcm_bcm
     imports_out_df = DataFrame(imports_out, import_sources)
     imports_out_df.Country = country_df[!, :Country]
+
+    import_country_out = value.(model[:import_country])*conv_mcm_bcm
+    for i in 1:nmonths
+        imports_month_df = DataFrame(import_country_out[:,i,:], import_sources)
+        imports_month_df.Country = country_df[!, :Country]
+        month_path = "ImportsMonth"*string(i)*".csv"
+        tot_path = joinpath(output_path, month_path)
+        CSV.write(tot_path, imports_month_df)
+    end
 
     imports_out_csv = "Imports_out.csv"
     imports_out_path = joinpath(output_path, imports_out_csv)
@@ -290,6 +300,7 @@ end
 function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     conv_mcm_bcm = 1/1000
+    nmonths = 24
 
     # Creating model
     model = Model(CPLEX.Optimizer)
@@ -306,7 +317,7 @@ function main()
     @show sum(value.(model[:imports_tot]))*conv_mcm_bcm
     @show value.(model[:shortfall_prop_sum])
 
-    printout(folder, model, country_df)
+    printout(folder, model, country_df, nmonths)
 end
 
 main()
