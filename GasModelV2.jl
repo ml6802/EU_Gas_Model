@@ -268,6 +268,7 @@ function printout(folder::AbstractString, model::Model, country_df::DataFrame) #
     CSV.write(shortfall_path, country_df)
     CSV.write(sf_month_path, sf_month_df)
 
+    # Look to include a function here that prints out every month of imports - would be good to see how the phase out actually happens
 
 end
 
