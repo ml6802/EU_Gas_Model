@@ -3,6 +3,7 @@ using CSV
 using DataFrames
 using DelimitedFiles
 
+###### All units in model in mcm - converted to bcm before output
 # Reading in CSVs
 function initialize_data(folder::AbstractString)
     Base_year = raw"2223" # Just keep the last two digits of the year name - 19, 20, 21, 2223
@@ -21,6 +22,7 @@ function initialize_data(folder::AbstractString)
     sector = "SectorUse.csv"
     rus = "RussiaReduc.csv"
     sec_reduc = "SectoralReduction.csv"
+    biogas = "Biogas.csv"
 
     country_path = joinpath(input_path, countrylist)
     country_df = CSV.read(country_path, header = 1, DataFrame)
@@ -50,10 +52,13 @@ function initialize_data(folder::AbstractString)
     sec_reduc_path = joinpath(input_path, sec_reduc)
     sec_reduc_df = CSV.read(sec_reduc_path, header=1, DataFrame)
 
+    biogas_path = joinpath(input_path, biogas)
+    biogas_df = CSV.read(biogas_path, header = 1, DataFrame)
+
     check_LNG_year!(imports_df, LNG_year)
     check_stor_year!(stor_df, stor_year)
 
-    return stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, rus_df, sec_reduc_df
+    return stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, rus_df, sec_reduc_df, biogas_df
 end
 
 function check_LNG_year!(imports_df::DataFrame, LNG_year::AbstractString)
@@ -69,7 +74,7 @@ function check_LNG_year!(imports_df::DataFrame, LNG_year::AbstractString)
         select!(imports_df, Not(:LNG_2025))
         select!(imports_df, Not(:LNG_2030))
         select!(imports_df, Not(:LNG_2023))
-        select!(imports_df, Not(:Baltic))
+        #select!(imports_df, Not(:Baltic))
     elseif LNG_year == raw"25"
         select!(imports_df, Not(:LNG_2021))
         select!(imports_df, Not(:LNG_2022))
@@ -100,22 +105,28 @@ end
 
 function initialize_model!(model::Model, folder::AbstractString)
     # initialize dfs
-    stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, rus_df, sec_reduc_df = initialize_data(folder)
+    stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, rus_df, sec_reduc_df, biogas_df = initialize_data(folder)
     # Introduce all countries demand
     leng = nrow(demand_df)
     nmonth = ncol(demand_df) # Make sure everything has same number of countries, months, and sectors
     nsec = ncol(sector_df)
     P = 10^5
     phased_LNG = true
-    nrte = ncol(imports_df) - 1
-    Days_per_month = [31,28,31,30,31,30,31,31,30,31,30,31,31,28,31,30,31,30,31,31,30,31,30,31]
-    rus_df = [1,1,0.8,0.7,0.6,0.5,0.4,0.3,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    if phased_LNG == true
+        nrte = ncol(imports_df) - 1 # remove - 1 if not doing phased lng
+    else
+        nrte = ncol(imports_df)
+    end
+    Days_per_month = [31,28,31,30,31,30,31,31,30,31,30,31,31,28,31,30,31,30,31,31,30,31,30,31]#
+    rus_df = [1,1,0.8,0.7,0.6,0.5,0.4,0.3,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]#
     # EU_tot_sec = [.15, .171, .254, .117, .308] # change to average of demand_df
     max_withdraw_day = 2022.401074
     max_inject_day = 1164.765988
     init_stor_fill_prop = 0.537
-    # EU_stor_leg = 0.9
-    prev_stor_peak = 0.77
+    #EU_stor_leg = 0.9
+    prev_stor_peak = 0.9 # Historical is 0.77
+    base_year = raw"2223"
+    #lng_inc = 80+50
     println(sector_df)
     println(sec_reduc_df)
 
@@ -128,6 +139,7 @@ function initialize_model!(model::Model, folder::AbstractString)
     print(demand_tot)
 #    @expression(model, demand_eq[cc = 1:leng, t = 1:nmonth], 0.802*demand_df[cc, t])
     @expression(model, prod_eq[cc = 1:leng, t = 1:nmonth], prod_df[cc,t])
+    @expression(model, biogas_eq[cc = 1:leng, t = 1:nmonth], biogas_df[cc,1]*Days_per_month[t]) # Creates biogas in mcm/month
     
     # Introduce import capacity things
     @variable(model, trans_in_country[cct = 1:leng, t = 1:nmonth, ccf = 1:leng] >= 0)
@@ -147,8 +159,10 @@ function initialize_model!(model::Model, folder::AbstractString)
     @constraint(model, C_stor_cont[cc = 1:leng], storage_fill[cc,1] == init_stor_fill_prop*stor_cap[cc] + storage_in[cc,1] - storage_out[cc,1]) #53.7% full as of Jan 1 -LOOK AT THESE
     @constraint(model, C_stor_bal[cc = 1:leng, t = 2:nmonth], storage_fill[cc,t] == storage_fill[cc,t-1] + storage_in[cc,t] - storage_out[cc,t])
     #@constraint(model, stor_fill_req[cc = 1:leng], storage_fill[cc, 10] >= EU_stor_leg*stor_cap[cc]) # EU Legislation
+    #@constraint(model, stor_fill_req2[cc = 1:leng], storage_fill[cc, 22] >= EU_stor_leg*stor_cap[cc])
     # Phasing in historical storage peak
     winter_1 = sum(2*demand_sector_reduc[cc,t,sec] for cc in 1:leng, t in 1:3, sec in 1:nsec)
+    # winter_2 = sum(2*demand_sector_reduc[cc,t,sec] for cc in 1:leng, t in 10:12, sec in 1:nsec) For 1 year models
     winter_2 = sum(demand_sector_reduc[cc,t,sec] for cc in 1:leng, t in 10:15, sec in 1:nsec)
     winter_3 = sum(2*demand_sector_reduc[cc,t,sec] for cc in 1:leng, t in 21:24, sec in 1:nsec)
     ratio_a = winter_2/winter_1
@@ -167,22 +181,26 @@ function initialize_model!(model::Model, folder::AbstractString)
     # Monthly imports from each import source
     @variable(model, import_country[cc = 1:leng,t = 1:nmonth,rte = 1:nrte] >= 0)
     if phased_LNG== true
-        import_22 = select(imports_df,Not(:LNG_2023))
+        import_22 = select(imports_df,Not(:LNG_2023))  #imports_df
         import_22[4,nrte] = 0.0 # baltic not ready
         @constraint(model, LNG_expansion_a[cc = 1:leng, t = 1:12, rte = 1:nrte], import_country[cc, t, rte] <= Days_per_month[t]*import_22[cc,rte])
         print(import_22)
-        import_23 = select(imports_df,Not(:LNG_2022))
-        print(import_23)
-        @constraint(model, LNG_expansion_b[cc = 1:leng, t = 13:nmonth, rte = 1:nrte], import_country[cc, t, rte] <= Days_per_month[t]*import_23[cc,rte])
+        if base_year == raw"2223"
+            import_23 = select(imports_df,Not(:LNG_2022))
+            print(import_23)
+            @constraint(model, LNG_expansion_b[cc = 1:leng, t = 13:nmonth, rte = 1:nrte], import_country[cc, t, rte] <= Days_per_month[t]*import_23[cc,rte])
+        end
     else
         @constraint(model, c_import_country[cc = 1:leng, t=1:nmonth, rte = 1:nrte], import_country[cc,t,rte] <= Days_per_month[t]*imports_df[cc,rte])
     end
     
     rte_russia = nrte-1
-    @constraint(model, rus_phase[cc = 1:leng, t = 1:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_23[cc,rte_russia]) # Russian gas phaseout
+    @constraint(model, rus_phasea[cc = 1:leng, t = 1:12], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_22[cc,rte_russia])
+    @constraint(model, rus_phaseb[cc = 1:leng, t = 13:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_23[cc,rte_russia]) # Russian gas phaseout
     @constraint(model, import_month[cc = 1:leng, t = 1:nmonth], import_in_month[cc,t] == sum(import_country[cc,t,rte] for rte in 1:nrte))
 
     @expression(model, imports_tot[cc = 1:leng, rte = 1:nrte], sum(import_country[cc,t,rte] for t in 1:nmonth))
+    # @constraint(model, lng_req, sum(imports_tot[cc, 3] for cc in 1:leng) >= lng_inc*1000)
 
     # Monthly transmission imports
     @constraint(model, c_trans_in_country[cct = 1:leng, t=1:nmonth, ccf = 1:leng], trans_in_country[cct,t,ccf] <= Days_per_month[t]*trans_in_df[cct,ccf])
@@ -199,7 +217,7 @@ function initialize_model!(model::Model, folder::AbstractString)
     @constraint(model, c_trans_in_match[cct = 1:leng, t = 1:nmonth, ccf = 1:leng], trans_in_country[cct,t,ccf] == trans_out_country[ccf, t, cct]) 
     
     # Overall gas balance for each country in each month
-    @constraint(model, cGasBal[cc = 1:leng, t = 1:nmonth], shortfall[cc,t] + trans_in[cc,t] + import_in_month[cc,t] + prod_eq[cc,t] + storage_out[cc,t]  == demand_eq[cc, t] + trans_out[cc,t] + storage_in[cc,t])
+    @constraint(model, cGasBal[cc = 1:leng, t = 1:nmonth], shortfall[cc,t] + trans_in[cc,t] + import_in_month[cc,t] + prod_eq[cc,t] + biogas_eq[cc,t] + storage_out[cc,t]  == demand_eq[cc, t] + trans_out[cc,t] + storage_in[cc,t])
 
 
     # Objectives
@@ -256,14 +274,15 @@ function printout(folder::AbstractString, model::Model, country_df::DataFrame, n
     storage_output = "Storage_out.csv"
     stor_out_path = joinpath(output_path, storage_output)
 
-    import_sources = [:Cap_Al, :Algeria, :LNG, :Libya, :Norway, :Turkey, :Russia, :Baltic]
+    import_sources = [:Cap_Al, :Algeria, :LNG,  :Libya, :Norway, :Turkey, :Russia, :Baltic]
     imports_out = value.(model[:imports_tot])*conv_mcm_bcm
-    imports_out_df = DataFrame(imports_out, import_sources)
+    println(imports_out)
+    imports_out_df = DataFrame(imports_out, import_sources)#
     imports_out_df.Country = country_df[!, :Country]
 
     import_country_out = value.(model[:import_country])*conv_mcm_bcm
     for i in 1:nmonths
-        imports_month_df = DataFrame(import_country_out[:,i,:], import_sources)
+        imports_month_df = DataFrame(import_country_out[:,i,:], import_sources)#
         imports_month_df.Country = country_df[!, :Country]
         month_path = "ImportsMonth"*string(i)*".csv"
         tot_path = joinpath(output_path, month_path)
@@ -300,7 +319,7 @@ end
 function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     conv_mcm_bcm = 1/1000
-    nmonths = 24
+    nmonths = 12
 
     # Creating model
     model = Model(CPLEX.Optimizer)
