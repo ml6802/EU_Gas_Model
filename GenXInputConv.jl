@@ -1,6 +1,6 @@
 using CSV, DelimitedFiles, DataFrames
 
-Post_path() = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model\\Inputs\\Post_2"
+Post_path() = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model\\Inputs\\Post_Restrictions"
 CSVdf(path::AbstractString) = CSV.read(path, header = 1, DataFrame)
 dfCSV(path::AbstractString, df::DataFrame) = CSV.write(path, df)
 
@@ -27,7 +27,7 @@ end
 
 function add_countries(df::DataFrame)
     countries_out = [4,10,12,13,14,18,21,25,26,27,28]
-    values = [0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1]
+    values = zeros(24)
     for i in countries_out
         insert!.(eachcol(df), i, values)
     end

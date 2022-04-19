@@ -210,7 +210,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     nsec = ncol(sector_df)
     P = 10^5
     phased_LNG = true
-    rus_cut = false
+    rus_cut = true
     if phased_LNG == true
         nrte = ncol(imports_df) - 1 # remove - 1 if not doing phased lng
     else
@@ -243,10 +243,10 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     # inserting GenX outputs
     #@expression(model, demand_sector_reduc[cc = 1:leng, t = 1:5, sec = 1], sec_reduc_df[t,sec]*demand_sector[cc,t,sec])
     #@expression(model, demand_sector_reduc[cc = 1:leng, t = 6:nmonth, sec = 1], elec_df[cc,t]*demand_sector[cc,t,sec])
-    # @variable(model, demand_eq[cc = 1:leng, t = 1:nmonth] >= 0)
+    @variable(model, demand_eq[cc = 1:leng, t = 1:nmonth] >= 0)
     @expression(model, demand_sector_reduc[cc = 1:leng, t = 1:nmonth, sec = 1:nsec], demand_sector_reduc_df[cc,t,sec])
-    @expression(model, demand_eq[cc = 1:leng, t = 1:nmonth], sum(demand_sector_reduc[cc,t,sec] for sec in 1:nsec))
-    #@constraint(model, c_demand_eq[cc = 1:leng, t = 1:nmonth], demand_eq[cc, t] >= demand[cc, t])
+    @expression(model, demand[cc = 1:leng, t = 1:nmonth], sum(demand_sector_reduc[cc,t,sec] for sec in 1:nsec))
+    @constraint(model, c_demand_eq[cc = 1:leng, t = 1:nmonth], demand_eq[cc, t] >= demand[cc, t])
     #@expression(model, demand_eq[cc = 1:leng, t = 1:nmonth], demand_df[cc,t])
     @expression(model, demand_tot, sum(demand_eq[cc,t] for t in 1:nmonth, cc in 1:leng))
 
@@ -267,6 +267,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @variable(model, storage_in[cc = 1:leng, t = 1:nmonth] >= 0)
     @variable(model, storage_out[cc = 1:leng, t = 1:nmonth] >= 0)
     @variable(model, storage_fill[cc = 1:leng, t = 1:nmonth] >= 0)
+    @variable(model, storage_gap[cc = 1:leng, t = 1:2] >= 0)
 
     # Storage Constraints
     @constraint(model, C_stor_cap[cc = 1:leng, t = 1:nmonth], storage_fill[cc,t] <= stor_cap[cc])
@@ -282,8 +283,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     ratio_b = winter_3/winter_1
     # winter_2 = sum(2*demand_sector_reduc[cc,t,sec] for cc in 1:leng, t in 10:12, sec in 1:nsec) For 1 year models
      
-    @constraint(model, stor_fill_req_a[cc = 1:leng], storage_fill[cc, 10] >= ratio_a*prev_stor_peak*stor_cap[cc]) # sum of the winter months change vs historical
-    @constraint(model, stor_fill_req_b[cc = 1:leng], storage_fill[cc, 22] >= ratio_b*prev_stor_peak*stor_cap[cc])
+    @constraint(model, stor_fill_req_a[cc = 1:leng], storage_fill[cc, 10] + storage_gap[cc,1]>= ratio_a*prev_stor_peak*stor_cap[cc]) # sum of the winter months change vs historical
+    @constraint(model, stor_fill_req_b[cc = 1:leng], storage_fill[cc, 22] + storage_gap[cc,2]>= ratio_b*prev_stor_peak*stor_cap[cc])
     @constraint(model, stor_fill_req_c[cc = 1:leng], storage_fill[cc, 24] >= 0.5stor_cap[cc])
     @expression(model, storage_out_tot[t = 1:nmonth], sum(storage_out[cc,t] for cc in 1:leng))
     @expression(model, storage_in_tot[t = 1:nmonth], sum(storage_in[cc,t] for cc in 1:leng))
@@ -354,15 +355,17 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
 
     # Objectives
     K = 10^-3
-    @expression(model, shortfall_prop[cc= 1:leng, t = 1:nmonth], (1/(demand_eq[cc,t])*shortfall[cc,t]))
+    @expression(model, shortfall_prop[cc= 1:leng, t = 1:nmonth], (1/(demand[cc,t])*shortfall[cc,t]))
     @expression(model, shortfall_prop_sum[cc = 1:leng], sum((1/nmonth)*shortfall_prop[cc,t] for t in 1:nmonth))
     @expression(model, shortfall_prop_P[cc = 1:leng], sum(P*shortfall_prop[cc,t] for t in 1:nmonth))
     #@expression(model, Eshortfall_sum_pC[cc = 1:leng], sum(P*shortfall[cc,t] for t in 1:nmonth))
     @expression(model, shortfall_sum[cc = 1:leng], sum(shortfall[cc,t] for t in 1:nmonth))
     @expression(model, tot_shortfall, sum(shortfall_sum[cc] for cc in 1:leng))
+    @expression(model, tot_stor_short10, sum(storage_gap[cc,1] for cc in 1:leng))
+    @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
     #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng))
-    @expression(model, obj, K*total_LNG + P*tot_shortfall + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*P*shortfall_prop_P[28])
+    @expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*P*shortfall_prop_P[28] +  P*tot_shortfall + P*(tot_stor_short10 + tot_stor_short22))# 
     @objective(model, Min, obj)
 
     return model, country_df
@@ -523,7 +526,9 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
         tot_LNG = 0.001*value(model[:total_LNG])
         tot_gas = 0.001*value(model[:demand_tot])
         tot_shortfall = 0.001*value(model[:tot_shortfall])
-        return tot_LNG, tot_gas, tot_shortfall
+        stor_shortfall10 = 0.001 * value(model[:tot_stor_short10])
+        stor_shortfall22 = 0.001 * value(model[:tot_stor_short22])
+        return tot_LNG, tot_gas, tot_shortfall, stor_shortfall10, stor_shortfall22
     else
         conflict_constraint_list = ConstraintRef[]
         for (F, S) in list_of_constraint_types(model)
@@ -569,7 +574,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_2"
+    post = "Post_NoWinter"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
@@ -587,13 +592,15 @@ function main()
     lng_cases = zeros(length(elec_files))
     aggregate_demand = zeros(length(elec_files))
     ag_short = zeros(length(elec_files))
+    stor_short10 = zeros(length(elec_files))
+    stor_short22 = zeros(length(elec_files))
     names = Array{AbstractString,1}(undef, length(elec_files))
     for m in elec_files
         counter = counter + 1
-        lng_cases[counter], aggregate_demand[counter], ag_short[counter] = runner(input_path, post_path, m, folder, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df)
+        lng_cases[counter], aggregate_demand[counter], ag_short[counter], stor_short10[counter], stor_short22[counter] = runner(input_path, post_path, m, folder, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df)
         names[counter] = removecsv(m)
     end
-    plotting_df = DataFrame(Case=names, LNG=lng_cases, Demand=aggregate_demand, Shortfall=ag_short)
+    plotting_df = DataFrame(Case=names, LNG=lng_cases, Demand=aggregate_demand, Shortfall=ag_short, StorageShort10=stor_short10,StorageShort22=stor_short22)
     CSV.write(outpath, plotting_df)
 end
 
