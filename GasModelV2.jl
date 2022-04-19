@@ -283,8 +283,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     ratio_b = winter_3/winter_1
     # winter_2 = sum(2*demand_sector_reduc[cc,t,sec] for cc in 1:leng, t in 10:12, sec in 1:nsec) For 1 year models
      
-    @constraint(model, stor_fill_req_a[cc = 1:leng], storage_fill[cc, 10] + storage_gap[cc,1]>= ratio_a*prev_stor_peak*stor_cap[cc]) # sum of the winter months change vs historical
-    @constraint(model, stor_fill_req_b[cc = 1:leng], storage_fill[cc, 22] + storage_gap[cc,2]>= ratio_b*prev_stor_peak*stor_cap[cc])
+    @constraint(model, stor_fill_req_a[cc = 1:leng], storage_fill[cc, 10] + storage_gap[cc,1]>= ratio_a*prev_stor_peak*stor_cap[cc]) # sum of the winter months change vs historical:::: 
+    @constraint(model, stor_fill_req_b[cc = 1:leng], storage_fill[cc, 22] + storage_gap[cc,2]>= ratio_b*prev_stor_peak*stor_cap[cc]) # ::::
     @constraint(model, stor_fill_req_c[cc = 1:leng], storage_fill[cc, 24] >= 0.5stor_cap[cc])
     @expression(model, storage_out_tot[t = 1:nmonth], sum(storage_out[cc,t] for cc in 1:leng))
     @expression(model, storage_in_tot[t = 1:nmonth], sum(storage_in[cc,t] for cc in 1:leng))
@@ -358,6 +358,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, shortfall_prop[cc= 1:leng, t = 1:nmonth], (1/(demand[cc,t])*shortfall[cc,t]))
     @expression(model, shortfall_prop_sum[cc = 1:leng], sum((1/nmonth)*shortfall_prop[cc,t] for t in 1:nmonth))
     @expression(model, shortfall_prop_P[cc = 1:leng], sum(P*shortfall_prop[cc,t] for t in 1:nmonth))
+    @expression(model, shortfall_prop_PT[t in 1:nmonth], sum(P*shortfall_prop[cc,t] for cc in 1:leng))
     #@expression(model, Eshortfall_sum_pC[cc = 1:leng], sum(P*shortfall[cc,t] for t in 1:nmonth))
     @expression(model, shortfall_sum[cc = 1:leng], sum(shortfall[cc,t] for t in 1:nmonth))
     @expression(model, tot_shortfall, sum(shortfall_sum[cc] for cc in 1:leng))
@@ -365,7 +366,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
     #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng))
-    @expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*P*shortfall_prop_P[28] +  P*tot_shortfall + P*(tot_stor_short10 + tot_stor_short22))# 
+    @expression(model, obj, K*total_LNG + sum(P*shortfall_prop_PT[t] for t in 1:nmonth) + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*P*shortfall_prop_P[28] +  P*tot_shortfall + P*(tot_stor_short10 + tot_stor_short22))# 
     @objective(model, Min, obj)
 
     return model, country_df
@@ -574,7 +575,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_NoWinter"
+    post = "Post_Restrictions"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
