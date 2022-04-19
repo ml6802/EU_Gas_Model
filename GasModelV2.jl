@@ -61,7 +61,7 @@ function initialize_data(folder::AbstractString)
 
     return stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df
 end
-
+"""
 function check_heating(input_path::AbstractString, low_chp::Bool)
     CHP4 = "SectoralReduction4CHPstandard.csv"
     CHP8 = "SectoralReduction8CHPstandard.csv"
@@ -128,7 +128,7 @@ function check_heating(input_path::AbstractString, low_chp::Bool)
     end
     return sec_reduc_cc
 end
-"""
+#"""
 
 # Subselect for specific LNG build out assumptions
 function check_LNG_year!(imports_df::DataFrame, LNG_year::AbstractString)
@@ -543,23 +543,23 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
     end
 end
 
-function demand_builder(sec_reduc_df::AbstractDataFrame, sector_df::AbstractDataFrame, demand_df::AbstractDataFrame, elec_df::AbstractDataFrame, prod_df::AbstractDataFrame)
+function demand_builder(sec_reduc_df::AbstractArray, sector_df::AbstractDataFrame, demand_df::AbstractDataFrame, elec_df::AbstractDataFrame, prod_df::AbstractDataFrame)
     leng = nrow(sector_df)
     nmonth = ncol(demand_df)
     nsec = ncol(sector_df)
     reduc_end = 5
 
     demand_sector_reduc_df = Array{Float64, 3}(undef, (leng, nmonth, nsec))
-    ire_demand_tot = zeros(nmonth)
+    # ire_demand_tot = zeros(nmonth)
     for sec in 1:nsec
         for t in 1:nmonth
             for cc in 1:leng
                 if sec == 1 && t <= reduc_end
-                    demand_sector_reduc_df[cc,t,sec] = sec_reduc_df[t,sec]*sector_df[cc,sec]*demand_df[cc,t]
+                    demand_sector_reduc_df[cc,t,sec] = sec_reduc_df[cc,t,sec]*sector_df[cc,sec]*demand_df[cc,t]
                 elseif sec == 1 && t > reduc_end
                     demand_sector_reduc_df[cc,t,sec] = elec_df[cc,t]*sector_df[cc,sec]*demand_df[cc,t]
                 elseif sec >= 2
-                    demand_sector_reduc_df[cc,t,sec] = sec_reduc_df[t,sec]*sector_df[cc,sec]*demand_df[cc,t]
+                    demand_sector_reduc_df[cc,t,sec] = sec_reduc_df[cc,t,sec]*sector_df[cc,sec]*demand_df[cc,t]
                 end
             end
         end
