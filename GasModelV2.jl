@@ -25,7 +25,8 @@ function initialize_data(folder::AbstractString)
     storage = "Storage.csv"
     countrylist = "CountryList.csv"
     sector = "SectorUse.csv"
-    # rus = "RussiaReduc.csv"
+    emimp = "EmissionsIntensities.csv"
+    ProdEm = "ProdEmissions.csv"
     biogas = "Biogas.csv"
 
     country_path = joinpath(input_path, countrylist)
@@ -56,10 +57,17 @@ function initialize_data(folder::AbstractString)
     biogas_path = joinpath(input_path, biogas)
     biogas_df = CSV.read(biogas_path, header = 1, DataFrame)
 
+    emimp_path = joinpath(input_path, emimp)
+    emimp_df = CSV.read(emimp_path, header = 1, DataFrame)
+    emimp_df = select!(emimp_df, :Intensity)
+
+    Prodem_path = joinpath(input_path, ProdEm)
+    Prodem_df = CSV.read(Prodem_path, header = 1, DataFrame)
+
     check_LNG_year!(imports_df, LNG_year)
     check_stor_year!(stor_df, stor_year)
 
-    return stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df
+    return stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df,emimp_df,Prodem_df
 end
 """
 function check_heating(input_path::AbstractString, low_chp::Bool)
@@ -202,7 +210,7 @@ function storage_ratios(demand_sector_reduc_df::AbstractArray, demand_df::Abstra
 end
 """
 # Create model
-function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, stor_df::AbstractDataFrame, prod_df::AbstractDataFrame, demand_df::AbstractDataFrame, trans_in_df::AbstractDataFrame, trans_out_df::AbstractDataFrame, imports_df::AbstractDataFrame, country_df::AbstractDataFrame, sector_df::AbstractDataFrame, biogas_df::AbstractDataFrame)#, ratio_a::AbstractArray, ratio_b::AbstractArray)
+function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, stor_df::AbstractDataFrame, prod_df::AbstractDataFrame, demand_df::AbstractDataFrame, trans_in_df::AbstractDataFrame, trans_out_df::AbstractDataFrame, imports_df::AbstractDataFrame, country_df::AbstractDataFrame, sector_df::AbstractDataFrame, biogas_df::AbstractDataFrame, emimp_df::AbstractDataFrame, prodem_df::AbstractDataFrame)#, ratio_a::AbstractArray, ratio_b::AbstractArray)
    
     # Introduce all countries demand
     leng = nrow(demand_df)
@@ -322,8 +330,9 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @constraint(model, rus_phasea[cc = 1:leng, t = 1:12], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_22[cc,rte_russia])
     @constraint(model, rus_phaseb[cc = 1:leng, t = 13:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_23[cc,rte_russia]) # Russian gas phaseout
     @constraint(model, import_month[cc = 1:leng, t = 1:nmonth], import_in_month[cc,t] == sum(import_country[cc,t,rte] for rte in 1:nrte))
-
     @expression(model, imports_tot[cc = 1:leng, rte = 1:nrte], sum(import_country[cc,t,rte] for t in 1:nmonth))
+    @expression(model, imports_rte[rte = 1:nrte], sum(imports_tot[cc,rte] for cc in 1:leng))
+    @expression(model, imports_complete, sum(imports_tot[cc, rte] for cc in 1:leng, rte in 1:nrte))
 
     # Checking LNG each calendar year
     @expression(model, imports_annual1[cc = 1:leng, rte = 1:nrte], sum(import_country[cc,t,rte] for t in 1:12))
@@ -352,6 +361,12 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     # Overall gas balance for each country in each month
     @constraint(model, cGasBal[cc = 1:leng, t = 1:nmonth], shortfall[cc,t] + trans_in[cc,t] + import_in_month[cc,t] + prod_eq[cc,t] + biogas_eq[cc,t] + storage_out[cc,t]  == demand_eq[cc, t] + trans_out[cc,t] + storage_in[cc,t])
 
+    # Emissions Calc
+    @expression(model, em_prod[cc = 1:leng, t=1:nmonth], prodem_df[cc,1]*prod_df[cc,t])
+    @expression(model, em_prod_tot, sum(em_prod[cc,t] for cc in 1:leng, t in 1:nmonth))
+    @expression(model, imp_em_prod[rte = 1:nrte], emimp_df[rte,1]*imports_rte[rte])
+    @expression(model, imp_em_prod_tot, sum(imp_em_prod[rte] for rte in 1:nrte))
+    @expression(model, em_tot, em_prod_tot + imp_em_prod_tot)
 
     # Objectives
     K = 10^-3
@@ -366,7 +381,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
     #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng))
-    @expression(model, obj, K*total_LNG + sum(P*shortfall_prop_PT[t] for t in 1:nmonth) + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*P*shortfall_prop_P[28] +  P*tot_shortfall + P*(tot_stor_short10 + tot_stor_short22))# 
+    @expression(model, obj, K*total_LNG + em_tot+ sum(P*shortfall_prop_PT[t] for t in 1:nmonth) + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*P*shortfall_prop_P[28] +  P*tot_shortfall + P*(tot_stor_short10 + tot_stor_short22))# 
     @objective(model, Min, obj)
 
     return model, country_df
@@ -498,7 +513,7 @@ function test_ratios(demand_df::AbstractDataFrame, sector_df::AbstractDataFrame,
 end
 """
 
-function runner(input_path::AbstractString, post_path::AbstractString, m::AbstractString, folder::AbstractString, stor_df::AbstractDataFrame, prod_df::AbstractDataFrame, demand_df::AbstractDataFrame, trans_in_df::AbstractDataFrame, trans_out_df::AbstractDataFrame, imports_df::AbstractDataFrame, country_df::AbstractDataFrame, sector_df::AbstractDataFrame, biogas_df::AbstractDataFrame)
+function runner(input_path::AbstractString, post_path::AbstractString, m::AbstractString, folder::AbstractString, stor_df::AbstractDataFrame, prod_df::AbstractDataFrame, demand_df::AbstractDataFrame, trans_in_df::AbstractDataFrame, trans_out_df::AbstractDataFrame, imports_df::AbstractDataFrame, country_df::AbstractDataFrame, sector_df::AbstractDataFrame, biogas_df::AbstractDataFrame, emimp_df::AbstractDataFrame, prodem_df::AbstractDataFrame)
     # Get paths
     elec_path = joinpath(post_path, m)
 
@@ -515,7 +530,7 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
 
     # Create Model
     model = Model(CPLEX.Optimizer)
-    model, country_df = initialize_model!(model, demand_sector_reduc_df, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df) #, ratio_a, ratio_b
+    model, country_df = initialize_model!(model, demand_sector_reduc_df, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df) #, ratio_a, ratio_b
 
     # Solve
     optimize!(model)
@@ -529,7 +544,9 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
         tot_shortfall = 0.001*value(model[:tot_shortfall])
         stor_shortfall10 = 0.001 * value(model[:tot_stor_short10])
         stor_shortfall22 = 0.001 * value(model[:tot_stor_short22])
-        return tot_LNG, tot_gas, tot_shortfall, stor_shortfall10, stor_shortfall22
+        import_tot = 0.001 * value(model[:imports_complete])
+        em_tot = 1/1000000*value(model[:em_tot]) # in MegaTonnes/2 years
+        return tot_LNG, tot_gas, tot_shortfall, stor_shortfall10, stor_shortfall22, import_tot, em_tot
     else
         conflict_constraint_list = ConstraintRef[]
         for (F, S) in list_of_constraint_types(model)
@@ -586,7 +603,7 @@ function main()
     elec_files = readdir(post_path, join = false)
 
     # initialize dfs
-    stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df = initialize_data(folder)
+    stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df = initialize_data(folder)
 
     # Run cases
     counter = 0
@@ -595,13 +612,15 @@ function main()
     ag_short = zeros(length(elec_files))
     stor_short10 = zeros(length(elec_files))
     stor_short22 = zeros(length(elec_files))
+    import_tot = zeros(length(elec_files))
+    emm_tot = zeros(length(elec_files))
     names = Array{AbstractString,1}(undef, length(elec_files))
     for m in elec_files
         counter = counter + 1
-        lng_cases[counter], aggregate_demand[counter], ag_short[counter], stor_short10[counter], stor_short22[counter] = runner(input_path, post_path, m, folder, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df)
+        lng_cases[counter], aggregate_demand[counter], ag_short[counter], stor_short10[counter], stor_short22[counter], import_tot[counter], emm_tot[counter]  = runner(input_path, post_path, m, folder, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df)
         names[counter] = removecsv(m)
     end
-    plotting_df = DataFrame(Case=names, LNG=lng_cases, Demand=aggregate_demand, Shortfall=ag_short, StorageShort10=stor_short10,StorageShort22=stor_short22)
+    plotting_df = DataFrame(Case=names, LNG=lng_cases, Demand=aggregate_demand, Shortfall=ag_short, StorageShort10=stor_short10,StorageShort22=stor_short22,Imports=import_tot, Emissions=emm_tot)
     CSV.write(outpath, plotting_df)
 end
 
