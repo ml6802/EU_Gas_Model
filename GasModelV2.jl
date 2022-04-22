@@ -6,17 +6,20 @@ using DelimitedFiles
 ###### All units in model in mcm - converted to bcm before output
 
 ## To Dos:
-# Introduce country, month specific heating demand mitigation
-# for ireland, make it so that if production > demand, demand is set = production - exports
+# separate upstream and in europe emissions
+# add german LNG boat
 
 # Reading in CSVs
-function initialize_data(folder::AbstractString)
+function initialize_data(folder::AbstractString, imports_vol::Bool)
     Base_year = raw"2223" # Just keep the last two digits of the year name - 19, 20, 21, 2223
     LNG_year = raw"2223" # Options - 21, 22, 2223, 25, 30
     stor_year = raw"22" # Options - 22, 25, 30 - Note: no new storage online between '21 and '22 and '23/no good dates provided
 
-    
-    imports = "ImportCaps.csv"
+    if imports_vol == true
+        imports = "ImportVols.csv"
+    elseif imports_vol == false
+        imports = "ImportCaps.csv"
+    end
     trans = "TransmissionCap.csv"
     input = "Inputs"
     input_path = joinpath(folder, input)
@@ -59,7 +62,7 @@ function initialize_data(folder::AbstractString)
 
     emimp_path = joinpath(input_path, emimp)
     emimp_df = CSV.read(emimp_path, header = 1, DataFrame)
-    emimp_df = select!(emimp_df, :Intensity)
+    emimp_df = select!(emimp_df, :Combustion, :Upstream)
 
     Prodem_path = joinpath(input_path, ProdEm)
     Prodem_df = CSV.read(Prodem_path, header = 1, DataFrame)
@@ -84,20 +87,26 @@ end
 
 """
 # Select heating demand reduction strength
-function check_heating(input_path::AbstractString, low_chp::Bool)
+function check_heating(input_path::AbstractString, low_chp::AbstractArray)
+    no_reduc = false
     nsec = 5
     nmonth = 24
-    nheatopt = 4
-    nindopt = 2
+    nheatopt = 5
+    nindopt = 3
     file_names_df = CSV.read("C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model\\Inputs\\ReducCSVs.csv", header=1, DataFrame)
     scen_select_df = CSV.read("C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model\\Inputs\\ReducSelector.csv", header=1, DataFrame)
     nscen = nrow(file_names_df)
     ncountry = nrow(scen_select_df)
     heat_reduc_opt = Array{Float64, 3}(undef, (nheatopt, nmonth, 2))
     ind_reduc_opt = Array{Float64, 2}(undef, (nindopt, nmonth))
-    chp_reduc_opt = Array{Float64, 2}(undef, (2, nmonth))
+    chp_reduc_opt = Array{Float64, 2}(undef, (3, nmonth))
     sec_reduc_cc = Array{Float64, 3}(undef, (ncountry, nmonth, nsec))
-    elec_reduc_base = [1,1,0.9,0.8,0.7,0.5,0.3,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    if no_reduc == true
+        elec_reduc_base = ones(nmonth)
+        chp_reduc_opt = ones(nmonth)
+    elseif no_reduc == false
+        elec_reduc_base = [1,1,0.9,0.8,0.7,0.5,0.3,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    end
     counter = 1
     for k in file_names_df.File
         file_path = joinpath(input_path, k)
@@ -108,13 +117,13 @@ function check_heating(input_path::AbstractString, low_chp::Bool)
                     heat_reduc_opt[counter, j, i] = file_df[j, i]
                 end
             end
-        elseif counter >= 5 && counter <= 6
+        elseif counter >= 6 && counter <= 8
             for i in 1:nmonth
-                ind_reduc_opt[counter-4, i] = file_df[i,1]
+                ind_reduc_opt[counter-5, i] = file_df[i,1]
             end
-        elseif counter >= 7 && counter <= 8
+        elseif counter >= 9 && counter <= 11 && no_reduc == false
             for i in 1:nmonth
-                chp_reduc_opt[counter-6, i] = file_df[i, 1]
+                chp_reduc_opt[counter-8, i] = file_df[i,1]
             end
         end
         counter = counter + 1
@@ -124,10 +133,12 @@ function check_heating(input_path::AbstractString, low_chp::Bool)
             scen_h = scen_select_df.Reduc_Heat[m]
             scen_i = scen_select_df.Reduc_Ind[m]
             sec_reduc_cc[m, j, 1] = elec_reduc_base[j]
-            if low_chp == true
-                sec_reduc_cc[m, j, 2] = chp_reduc_opt[1,j]
-            else
+            if low_chp[1] == true && no_reduc == false
                 sec_reduc_cc[m, j, 2] = chp_reduc_opt[2,j]
+            elseif low_chp[2] == true && no_reduc == false
+                sec_reduc_cc[m, j, 2] = chp_reduc_opt[3,j]
+            elseif no_reduc == true || (low_chp[1] == false && low_chp[2] ==false)
+                sec_reduc_cc[m, j, 2] = chp_reduc_opt[1,j]
             end
             sec_reduc_cc[m, j, 3] = ind_reduc_opt[scen_i,j]
             sec_reduc_cc[m, j, 4] = heat_reduc_opt[scen_h,j, 1]
@@ -210,7 +221,7 @@ function storage_ratios(demand_sector_reduc_df::AbstractArray, demand_df::Abstra
 end
 """
 # Create model
-function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, stor_df::AbstractDataFrame, prod_df::AbstractDataFrame, demand_df::AbstractDataFrame, trans_in_df::AbstractDataFrame, trans_out_df::AbstractDataFrame, imports_df::AbstractDataFrame, country_df::AbstractDataFrame, sector_df::AbstractDataFrame, biogas_df::AbstractDataFrame, emimp_df::AbstractDataFrame, prodem_df::AbstractDataFrame)#, ratio_a::AbstractArray, ratio_b::AbstractArray)
+function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, stor_df::AbstractDataFrame, prod_df::AbstractDataFrame, demand_df::AbstractDataFrame, trans_in_df::AbstractDataFrame, trans_out_df::AbstractDataFrame, imports_df::AbstractDataFrame, country_df::AbstractDataFrame, sector_df::AbstractDataFrame, biogas_df::AbstractDataFrame, emimp_df::AbstractDataFrame, prodem_df::AbstractDataFrame, imports_vol::Bool)#, ratio_a::AbstractArray, ratio_b::AbstractArray)
    
     # Introduce all countries demand
     leng = nrow(demand_df)
@@ -218,26 +229,32 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     nsec = ncol(sector_df)
     P = 10^5
     phased_LNG = true
-    rus_cut = true
+    rus_cut = 2
     if phased_LNG == true
         nrte = ncol(imports_df) - 1 # remove - 1 if not doing phased lng
     else
         nrte = ncol(imports_df)
     end
     Days_per_month = [31,28,31,30,31,30,31,31,30,31,30,31,31,28,31,30,31,30,31,31,30,31,30,31]#
-    if rus_cut == true
+    if rus_cut == 1 # cut in may
         rus_df = [1,1,0.8,0.7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]#0.5,0.4,0.3,0.1
-    elseif rus_cut == false
+    elseif rus_cut == 2 # cut in oct
         rus_df = [1,1,0.8,0.7,0.5,0.4,0.3,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    elseif rus_cut == 3 # don't cut
+        rus_df = ones(nmonth)
     end
     # EU_tot_sec = [.15, .171, .254, .117, .308] # change to average of demand_df
     max_withdraw_day = 2022.401074
     max_inject_day = 1164.765988
     init_stor_fill_prop = 0.537
-    derate_imports = 0.86
-    derate_pipelines = 0.95 # Note: this derating of transmission pipelines is the most sensitive constraint. Dropping it to 0.9 from 0.95 results in an additional 1.34 bcm shortfall mostly in moldova and finland
+    if imports_vol == false
+        derate_imports = 0.86
+    elseif imports_vol == true
+        derate_imports = 1
+    end
+    derate_pipelines = 0.9 # Note: this derating of transmission pipelines is the most sensitive constraint. Dropping it to 0.9 from 0.95 results in an additional 1.34 bcm shortfall mostly in moldova and finland
     derate_LNG = 0.97
-    LNG_market_cap = 124000 # mcm/yr
+    LNG_market_cap = 124*1000 # mcm/yr
     # EU_stor_leg = 0.9
     prev_stor_peak = 0.9 # Historical is 0.77
     base_year = raw"2223"
@@ -293,7 +310,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
      
     @constraint(model, stor_fill_req_a[cc = 1:leng], storage_fill[cc, 10] + storage_gap[cc,1]>= ratio_a*prev_stor_peak*stor_cap[cc]) # sum of the winter months change vs historical:::: 
     @constraint(model, stor_fill_req_b[cc = 1:leng], storage_fill[cc, 22] + storage_gap[cc,2]>= ratio_b*prev_stor_peak*stor_cap[cc]) # ::::
-    @constraint(model, stor_fill_req_c[cc = 1:leng], storage_fill[cc, 24] >= 0.5stor_cap[cc])
+    @constraint(model, stor_fill_req_c[cc = 1:leng], storage_fill[cc, 24] >= init_stor_fill_prop*stor_cap[cc])
     @expression(model, storage_out_tot[t = 1:nmonth], sum(storage_out[cc,t] for cc in 1:leng))
     @expression(model, storage_in_tot[t = 1:nmonth], sum(storage_in[cc,t] for cc in 1:leng))
     @constraint(model, c_max_withdraw[t = 1:nmonth], storage_out_tot[t] <= Days_per_month[t]*max_withdraw_day)
@@ -364,13 +381,18 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     # Emissions Calc
     @expression(model, em_prod[cc = 1:leng, t=1:nmonth], prodem_df[cc,1]*prod_df[cc,t])
     @expression(model, em_prod_tot, sum(em_prod[cc,t] for cc in 1:leng, t in 1:nmonth))
-    @expression(model, imp_em_prod[rte = 1:nrte], emimp_df[rte,1]*imports_rte[rte])
-    @expression(model, imp_em_prod_tot, sum(imp_em_prod[rte] for rte in 1:nrte))
-    @expression(model, em_tot, em_prod_tot + imp_em_prod_tot)
+    @expression(model, imp_em_comb[rte = 1:nrte], emimp_df[rte,1]*imports_rte[rte])
+    @expression(model, imp_em_comb_tot, sum(imp_em_comb[rte] for rte in 1:nrte))
+    @expression(model, imp_em_up[rte = 1:nrte], emimp_df[rte,2]*imports_rte[rte])
+    @expression(model, imp_em_up_tot, sum(imp_em_up[rte] for rte in 1:nrte))
+    @expression(model, em_dom_tot, em_prod_tot + imp_em_comb_tot)
+    @expression(model, em_tot, em_prod_tot + imp_em_comb_tot + imp_em_up_tot)
 
     # Objectives
     K = 10^-3
     @expression(model, shortfall_prop[cc= 1:leng, t = 1:nmonth], (1/(demand[cc,t])*shortfall[cc,t]))
+    #@expression(model, shortfall_t[cc = 1:leng, t = 1:nmonth], (1/sum(demand[cc,t] for t in 1:nmonth))*shortfall[cc,t])
+    #@expression(model, shortfall_cc[cc = 1:leng, t = 1:nmonth], (1/sum(demand[cc,t] for cc in 1:leng))*shortfall[cc,t])
     @expression(model, shortfall_prop_sum[cc = 1:leng], sum((1/nmonth)*shortfall_prop[cc,t] for t in 1:nmonth))
     @expression(model, shortfall_prop_P[cc = 1:leng], sum(P*shortfall_prop[cc,t] for t in 1:nmonth))
     @expression(model, shortfall_prop_PT[t in 1:nmonth], sum(P*shortfall_prop[cc,t] for cc in 1:leng))
@@ -381,8 +403,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
     #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng))
-    @expression(model, obj, K*total_LNG + em_tot+ sum(P*shortfall_prop_PT[t] for t in 1:nmonth) + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*P*shortfall_prop_P[28] +  P*tot_shortfall + P*(tot_stor_short10 + tot_stor_short22))# 
-    @objective(model, Min, obj)
+    @expression(model, obj, K*total_LNG + P*P*shortfall_prop_P[5] + P*P*shortfall_prop_P[11] +  P*P*shortfall_prop_P[16] + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + sum(P*(tot_stor_short10 + tot_stor_short22)))# em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +
+    @objective(model, Min, obj) # note - includes a weak emissions optimization
 
     return model, country_df
 end
@@ -489,8 +511,12 @@ end
 
 # Select whether or not to use lower heating demand reduction assumptions
 function parse_chp_level(name::AbstractString)
-    mild = "MildCHP"
-    low_chp = occursin(mild, name)
+    base = "Base"
+    deep = "Deep"
+    low_chp = Array{Bool,1}(undef, 2)
+    low_chp[1] = occursin(base, name)
+    low_chp[2] = occursin(deep, name)
+
     return low_chp
 end
 
@@ -513,7 +539,7 @@ function test_ratios(demand_df::AbstractDataFrame, sector_df::AbstractDataFrame,
 end
 """
 
-function runner(input_path::AbstractString, post_path::AbstractString, m::AbstractString, folder::AbstractString, stor_df::AbstractDataFrame, prod_df::AbstractDataFrame, demand_df::AbstractDataFrame, trans_in_df::AbstractDataFrame, trans_out_df::AbstractDataFrame, imports_df::AbstractDataFrame, country_df::AbstractDataFrame, sector_df::AbstractDataFrame, biogas_df::AbstractDataFrame, emimp_df::AbstractDataFrame, prodem_df::AbstractDataFrame)
+function runner(input_path::AbstractString, post_path::AbstractString, m::AbstractString, folder::AbstractString, stor_df::AbstractDataFrame, prod_df::AbstractDataFrame, demand_df::AbstractDataFrame, trans_in_df::AbstractDataFrame, trans_out_df::AbstractDataFrame, imports_df::AbstractDataFrame, country_df::AbstractDataFrame, sector_df::AbstractDataFrame, biogas_df::AbstractDataFrame, emimp_df::AbstractDataFrame, prodem_df::AbstractDataFrame, imports_vol::Bool)
     # Get paths
     elec_path = joinpath(post_path, m)
 
@@ -530,7 +556,7 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
 
     # Create Model
     model = Model(CPLEX.Optimizer)
-    model, country_df = initialize_model!(model, demand_sector_reduc_df, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df) #, ratio_a, ratio_b
+    model, country_df = initialize_model!(model, demand_sector_reduc_df, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df, imports_vol) #, ratio_a, ratio_b
 
     # Solve
     optimize!(model)
@@ -545,8 +571,10 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
         stor_shortfall10 = 0.001 * value(model[:tot_stor_short10])
         stor_shortfall22 = 0.001 * value(model[:tot_stor_short22])
         import_tot = 0.001 * value(model[:imports_complete])
+        em_dom_tot = 1/1000000*value(model[:em_dom_tot]) # in MegaTonnes/2 years
+        em_up_tot = 1/1000000*value(model[:imp_em_up_tot]) # in MegaTonnes/2 years
         em_tot = 1/1000000*value(model[:em_tot]) # in MegaTonnes/2 years
-        return tot_LNG, tot_gas, tot_shortfall, stor_shortfall10, stor_shortfall22, import_tot, em_tot
+        return tot_LNG, tot_gas, tot_shortfall, stor_shortfall10, stor_shortfall22, import_tot, em_dom_tot, em_up_tot, em_tot
     else
         conflict_constraint_list = ConstraintRef[]
         for (F, S) in list_of_constraint_types(model)
@@ -592,18 +620,18 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_Restrictions"
+    post = "Post_Final"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
     outpath = joinpath(folder, outputs, lngcsv)
-    
+    imports_vol = true
 
     # Get set of input scenarios
     elec_files = readdir(post_path, join = false)
 
     # initialize dfs
-    stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df = initialize_data(folder)
+    stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df = initialize_data(folder, imports_vol)
 
     # Run cases
     counter = 0
@@ -613,14 +641,16 @@ function main()
     stor_short10 = zeros(length(elec_files))
     stor_short22 = zeros(length(elec_files))
     import_tot = zeros(length(elec_files))
-    emm_tot = zeros(length(elec_files))
+    em_dom_tot = zeros(length(elec_files))
+    em_up_tot = zeros(length(elec_files))
+    em_tot = zeros(length(elec_files))
     names = Array{AbstractString,1}(undef, length(elec_files))
     for m in elec_files
         counter = counter + 1
-        lng_cases[counter], aggregate_demand[counter], ag_short[counter], stor_short10[counter], stor_short22[counter], import_tot[counter], emm_tot[counter]  = runner(input_path, post_path, m, folder, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df)
+        lng_cases[counter], aggregate_demand[counter], ag_short[counter], stor_short10[counter], stor_short22[counter], import_tot[counter], em_dom_tot[counter], em_up_tot[counter], em_tot[counter]  = runner(input_path, post_path, m, folder, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df, imports_vol)
         names[counter] = removecsv(m)
     end
-    plotting_df = DataFrame(Case=names, LNG=lng_cases, Demand=aggregate_demand, Shortfall=ag_short, StorageShort10=stor_short10,StorageShort22=stor_short22,Imports=import_tot, Emissions=emm_tot)
+    plotting_df = DataFrame(Case=names, LNG=lng_cases, Demand=aggregate_demand, Shortfall=ag_short, StorageShort10=stor_short10,StorageShort22=stor_short22,Imports=import_tot, DomEmissions=em_dom_tot, UpEmissions=em_up_tot, EmissionsTot=em_tot)
     CSV.write(outpath, plotting_df)
 end
 
