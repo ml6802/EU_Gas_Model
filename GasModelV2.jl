@@ -358,16 +358,17 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     rte_russia = nrte-1
     @constraint(model, rus_phasea[cc = 1:leng, t = 1:9], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_22[cc,rte_russia])
     @constraint(model, rus_phaseb[cc = 1:leng, t = 10:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_23[cc,rte_russia]) # Russian gas phaseout
+    cap_dead = 20.62 
     if rus_cut == 3
         @constraint(model, rus_amount, sum(import_country[cc,t,rte_russia] for cc in 1:leng, t in 1:12) == 138400)
         @constraint(model, rus_amountb, sum(import_country[cc,t,rte_russia] for cc in 1:leng, t in 13:24) == 138400)
         #@constraint(model, demand_c2[cc in 1:leng, t in 1:nmonth], demand_eq[cc,t] == demand[cc,t])
         @constraint(model, lng_statusa, sum(import_country[cc,t,3] for cc in 1:leng, t in 1:12) == 93700)
         @constraint(model, lng_statusb, sum(import_country[cc,t,3] for cc in 1:leng, t in 13:24) == 93700)
-        cap_dead = 20.62
-        @constraint(model, algpipe[t = 1:nmonth], import_country[9,t,2] <= Days_per_month[t]*(imports_df[9,2]))
+        
+        @constraint(model, algpipe[t = 1:nmonth], import_country[8,t,2] <= Days_per_month[t]*(imports_df[8,2]))
     else
-        @constraint(model, algpipe[t = 1:nmonth], import_country[9,t,2] <= Days_per_month[t]*(imports_df[9,2] - cap_dead))
+        @constraint(model, algpipe[t = 1:nmonth], import_country[8,t,2] <= Days_per_month[t]*(imports_df[8,2] - cap_dead))
     end
     # Turkstream
     if no_turkst == true
@@ -440,7 +441,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
     #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng))
-    @expression(model, obj, K*total_LNG  + sum(P*shortfall_prop_P[cc] for cc in 1:leng)+ P*P*shortfall_prop_P[11] + P*P*shortfall_prop_P[18] + P*P*shortfall_prop_P[3] + P*P*shortfall_prop_P[3] + P*P*shortfall_prop_P[17] + P*P*shortfall_prop_P[20] +  P*P*shortfall_prop_P[15]+ tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG +
+    @expression(model, obj, K*total_LNG  + sum(P*shortfall_prop_P[cc] for cc in 1:14) + sum(P*shortfall_prop_P[cc] for cc in 16:21) + sum(P*shortfall_prop_P[cc] for cc in 23:28)+ P*P*shortfall_prop_P[11] + P*P*shortfall_prop_P[18] + P*P*shortfall_prop_P[3] + P*P*shortfall_prop_P[3] + P*P*shortfall_prop_P[17] + P*P*shortfall_prop_P[20] +   tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG +
     @objective(model, Min, obj) # note - includes a weak emissions optimization  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[5] + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*tot_shortfall 
 
     return model, country_df
@@ -687,8 +688,8 @@ function main()
     lngcsv = "plotting_allcases.csv"
     outpath = joinpath(folder, outputs, lngcsv)
     imports_vol = true
-    no_reduc = true
-    rus_cut = 3
+    no_reduc = false
+    rus_cut = 1
     EU_stor = false
     no_turkst = false
     # LNG OPT - FALSE
