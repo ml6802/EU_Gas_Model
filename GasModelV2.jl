@@ -358,16 +358,17 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     rte_russia = nrte-1
     @constraint(model, rus_phasea[cc = 1:leng, t = 1:9], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_22[cc,rte_russia])
     @constraint(model, rus_phaseb[cc = 1:leng, t = 10:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_23[cc,rte_russia]) # Russian gas phaseout
+    cap_dead = 20.62
     if rus_cut == 3
         @constraint(model, rus_amount, sum(import_country[cc,t,rte_russia] for cc in 1:leng, t in 1:12) == 138400)
         @constraint(model, rus_amountb, sum(import_country[cc,t,rte_russia] for cc in 1:leng, t in 13:24) == 138400)
         #@constraint(model, demand_c2[cc in 1:leng, t in 1:nmonth], demand_eq[cc,t] == demand[cc,t])
         @constraint(model, lng_statusa, sum(import_country[cc,t,3] for cc in 1:leng, t in 1:12) == 93700)
         @constraint(model, lng_statusb, sum(import_country[cc,t,3] for cc in 1:leng, t in 13:24) == 93700)
-        cap_dead = 20.62
-        @constraint(model, algpipe[t = 1:nmonth], import_country[9,t,2] <= Days_per_month[t]*(imports_df[9,2]))
+   
+        @constraint(model, algpipe[t = 1:nmonth], import_country[9,t,2] <= Days_per_month[t]*(imports_df[8,2]))
     else
-        @constraint(model, algpipe[t = 1:nmonth], import_country[9,t,2] <= Days_per_month[t]*(imports_df[9,2] - cap_dead))
+        @constraint(model, algpipe[t = 1:nmonth], import_country[9,t,2] <= Days_per_month[t]*(imports_df[8,2] - cap_dead))
     end
     # Turkstream
     if no_turkst == true
