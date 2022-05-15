@@ -12,8 +12,8 @@ using DelimitedFiles
 # Reading in CSVs
 function initialize_data(folder::AbstractString, imports_vol::Bool)
     Base_year = raw"2223" # Just keep the last two digits of the year name - 19, 20, 21, 2223
-    LNG_year = raw"2223" # Options - 21, 22, 2223, 25, 30
-    stor_year = raw"22" # Options - 22, 25, 30 - Note: no new storage online between '21 and '22 and '23/no good dates provided
+    LNG_year = raw"25" # Options - 21, 22, 2223, 25, 30
+    stor_year = raw"25" # Options - 22, 25, 30 - Note: no new storage online between '21 and '22 and '23/no good dates provided
 
     if imports_vol == true
         imports = "ImportVols.csv"
@@ -230,7 +230,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     nmonth = ncol(demand_df) # Make sure everything has same number of countries, months, and sectors
     nsec = ncol(sector_df)
     P = 10^5
-    phased_LNG = true
+    phased_LNG = false
     if phased_LNG == true
         nrte = ncol(imports_df) - 1 # remove - 1 if not doing phased lng
     else
@@ -349,15 +349,18 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
             import_23[:,3] = derate_LNG/derate_imports*import_23[:,3]
             @constraint(model, LNG_expansion_b[cc = 1:leng, t = 10:nmonth, rte = 1:nrte], import_country[cc, t, rte] <= Days_per_month[t]*import_23[cc,rte])
         end
+        rte_russia = nrte-1
+        @constraint(model, rus_phasea[cc = 1:leng, t = 1:9], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_22[cc,rte_russia])
+        @constraint(model, rus_phaseb[cc = 1:leng, t = 10:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_23[cc,rte_russia]) # Russian gas phaseout
     else
-        imports_df = derate_imports * imports_df
+        imports_df = derate_imports * Matrix(imports_df)
         imports_df[:,3] = derate_LNG/derate_imports*imports_df[:,3]
         @constraint(model, c_import_country[cc = 1:leng, t=1:nmonth, rte = 1:nrte], import_country[cc,t,rte] <= Days_per_month[t]*imports_df[cc,rte])
+        rte_russia = nrte-1
+        @constraint(model, rus_phasea[cc = 1:leng, t = 1:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*imports_df[cc,rte_russia])
     end
     
-    rte_russia = nrte-1
-    @constraint(model, rus_phasea[cc = 1:leng, t = 1:9], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_22[cc,rte_russia])
-    @constraint(model, rus_phaseb[cc = 1:leng, t = 10:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[t]*import_23[cc,rte_russia]) # Russian gas phaseout
+    
     cap_dead = 20.62
     if rus_cut == 3
         @constraint(model, rus_amount, sum(import_country[cc,t,rte_russia] for cc in 1:leng, t in 1:12) == 138400)
@@ -365,10 +368,9 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
         #@constraint(model, demand_c2[cc in 1:leng, t in 1:nmonth], demand_eq[cc,t] == demand[cc,t])
         @constraint(model, lng_statusa, sum(import_country[cc,t,3] for cc in 1:leng, t in 1:12) == 93700)
         @constraint(model, lng_statusb, sum(import_country[cc,t,3] for cc in 1:leng, t in 13:24) == 93700)
-   
-        @constraint(model, algpipe[t = 1:nmonth], import_country[9,t,2] <= Days_per_month[t]*(imports_df[8,2]))
+        @constraint(model, algpipe[t = 1:nmonth], import_country[8,t,2] <= Days_per_month[t]*(imports_df[8,2]))
     else
-        @constraint(model, algpipe[t = 1:nmonth], import_country[9,t,2] <= Days_per_month[t]*(imports_df[8,2] - cap_dead))
+        @constraint(model, algpipe[t = 1:nmonth], import_country[8,t,2] <= Days_per_month[t]*(imports_df[8,2] - cap_dead))
     end
     # Turkstream
     if no_turkst == true
@@ -682,14 +684,14 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_Final_v5"
+    post = "Post_2025"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
     outpath = joinpath(folder, outputs, lngcsv)
     imports_vol = true
-    no_reduc = true
-    rus_cut = 3
+    no_reduc = false
+    rus_cut = 1
     EU_stor = false
     no_turkst = false
     # LNG OPT - FALSE
