@@ -366,9 +366,9 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
         @constraint(model, lng_statusa, sum(import_country[cc,t,3] for cc in 1:leng, t in 1:12) == 93700)
         @constraint(model, lng_statusb, sum(import_country[cc,t,3] for cc in 1:leng, t in 13:24) == 93700)
    
-        @constraint(model, algpipe[t = 1:nmonth], import_country[9,t,2] <= Days_per_month[t]*(imports_df[8,2]))
+        @constraint(model, algpipe[t = 1:nmonth], import_country[8,t,2] <= Days_per_month[t]*(imports_df[8,2]))
     else
-        @constraint(model, algpipe[t = 1:nmonth], import_country[9,t,2] <= Days_per_month[t]*(imports_df[8,2] - cap_dead))
+        @constraint(model, algpipe[t = 1:nmonth], import_country[8,t,2] <= Days_per_month[t]*(imports_df[8,2] - cap_dead))
     end
     # Turkstream
     if no_turkst == true
@@ -688,8 +688,8 @@ function main()
     lngcsv = "plotting_allcases.csv"
     outpath = joinpath(folder, outputs, lngcsv)
     imports_vol = true
-    no_reduc = true
-    rus_cut = 3
+    no_reduc = false
+    rus_cut = 1
     EU_stor = false
     no_turkst = false
     # LNG OPT - FALSE
