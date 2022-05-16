@@ -237,6 +237,9 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
         nrte = ncol(imports_df)
     end
     Days_per_month = [31,28,31,30,31,30,31,31,30,31,30,31,31,28,31,30,31,30,31,31,30,31,30,31]#
+    if rus_cut == 0
+        rus_df = zeros(nmonth)
+    end
     if rus_cut == 1 # cut in may
         rus_df = [0.7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]#0.5,0.4,0.3,0.1
     elseif rus_cut == 2 # cut in oct
@@ -396,8 +399,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, shortfall_month[t = 1:nmonth], sum(shortfall[cc,t] for cc in 1:leng))
     @expression(model, LNG_month[t=1:nmonth], sum(import_country[cc,t,3] for cc in 1:leng))
     @expression(model, storage_fill_month[t = 1:nmonth], sum(storage_fill[cc,t] for cc in 1:leng))
-    @constraint(model, c_total_lng1, e_total_lng1 <= LNG_market_cap)
-    @constraint(model, c_total_lng2, e_total_lng2 <= LNG_market_cap)
+    #@constraint(model, c_total_lng1, e_total_lng1 <= LNG_market_cap)
+    #@constraint(model, c_total_lng2, e_total_lng2 <= LNG_market_cap) # Commented out due to larger LNG market 2025
     # @constraint(model, lng_req, sum(imports_tot[cc, 3] for cc in 1:leng) >= lng_inc*1000)
     # 
 
@@ -571,9 +574,12 @@ function parse_chp_level(name::AbstractString)
     base = "Base"
     mod = "Moderate"
     deep = "Deep"
+    double = "Double"
     low_chp = Array{Bool,1}(undef, 4)
     low_chp[1] = occursin(zero, name)
-    low_chp[2] = occursin(base, name)
+    if occursin(base, name) || occursin(double, name)
+        low_chp[2] = true
+    end
     low_chp[3] = occursin(mod, name)
     low_chp[4] = occursin(deep, name)
     return low_chp
@@ -691,7 +697,7 @@ function main()
     outpath = joinpath(folder, outputs, lngcsv)
     imports_vol = true
     no_reduc = false
-    rus_cut = 1
+    rus_cut = 0
     EU_stor = false
     no_turkst = false
     # LNG OPT - FALSE
