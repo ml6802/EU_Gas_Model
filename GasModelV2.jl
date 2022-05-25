@@ -237,17 +237,19 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
         nrte = ncol(imports_df)
     end
     Days_per_month = [31,28,31,30,31,30,31,31,30,31,30,31,31,28,31,30,31,30,31,31,30,31,30,31]#
-    if rus_cut == 1 # cut in may
-        rus_df = [0.7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]#0.5,0.4,0.3,0.1
+    if rus_cut == 1 # cut in june
+        rus_df = [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]#0.5,0.4,0.3,0.1
     elseif rus_cut == 2 # cut in oct
-        rus_df = [1,0.7,0.4,0.3,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        rus_df = [1,1,0.7,0.4,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
     elseif rus_cut == 3# don't cut
         rus_df = ones(nmonth)
     end
     # EU_tot_sec = [.15, .171, .254, .117, .308] # change to average of demand_df
     max_withdraw_day = 2022.401074
     max_inject_day = 1164.765988
-    init_stor_fill_prop = 0.286
+    init_stor_fill_prop = 0.2863
+    # Shifted to June
+    stor_fill_prop = [0.2653,0.3376] 
     if imports_vol == false
         derate_imports = 0.86
     elseif imports_vol == true
@@ -304,6 +306,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @constraint(model, C_stor_cap[cc = 1:leng, t = 1:nmonth], storage_fill[cc,t] <= stor_cap[cc])
     @constraint(model, C_stor_cont[cc = 1:leng], storage_fill[cc,1] == init_stor_fill_prop*stor_cap[cc] + storage_in[cc,1] - storage_out[cc,1]) #53.7% full as of Jan 1 -LOOK AT THESE
     @constraint(model, C_stor_bal[cc = 1:leng, t = 2:nmonth], storage_fill[cc,t] == storage_fill[cc,t-1] + storage_in[cc,t] - storage_out[cc,t])
+    @constraint(model, C_stor_trak[cc = 1:leng, t = 1:2], storage_fill[cc, t] == stor_fill_prop[t]*stor_cap[cc])
     #@constraint(model, stor_fill_req[cc = 1:leng], storage_fill[cc, 10] >= EU_stor_leg*stor_cap[cc]) # EU Legislation
     #@constraint(model, stor_fill_req2[cc = 1:leng], storage_fill[cc, 22] >= EU_stor_leg*stor_cap[cc])
     # Phasing in historical storage peak
@@ -687,9 +690,11 @@ function main()
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
     outpath = joinpath(folder, outputs, lngcsv)
+
+    ### OPTIONS
     imports_vol = true
     no_reduc = false
-    rus_cut = 1
+    rus_cut = 2 # 1 is June cut, 2 is oct, 3 is no cut - should be paired with no_reduc as a zero emissions test case
     EU_stor = false
     no_turkst = false
     # LNG OPT - FALSE
