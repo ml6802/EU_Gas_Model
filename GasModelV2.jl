@@ -6,8 +6,7 @@ using DelimitedFiles
 ###### All units in model in mcm - converted to bcm before output
 
 ## To Dos:
-# separate upstream and in europe emissions
-# add german LNG boat
+# Phase in new projects - Apr 22 - March 24
 
 # Reading in CSVs
 function initialize_data(folder::AbstractString, imports_vol::Bool)
@@ -374,10 +373,15 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
         @constraint(model, algpipe[t = 1:nmonth], import_country[8,t,2] <= Days_per_month[t]*(imports_df[8,2] - cap_dead))
     end
     # Turkstream
+    rte_turk = rte_russia - 1
     if no_turkst == true
-        rte_turk = rte_russia - 1
         @constraint(model, no_turkstream[t = 1:nmonth], import_country[2,t,rte_turk] == 0)
     end
+    
+    # Phasing in TANAP Developments
+    tanap = [33.3018, 51.12343]
+    @constraint(model, tanap1[t = 1:9], import_country[7, t, rte_turk] <= Days_per_month[t]*tanap[1])
+    @constraint(model, tanap2[t = 10:nmonth], import_country[7, t, rte_turk] <= Days_per_month[t]*tanap[2])
     
     @constraint(model, import_month[cc = 1:leng, t = 1:nmonth], import_in_month[cc,t] == sum(import_country[cc,t,rte] for rte in 1:nrte))
     @expression(model, imports_tot[cc = 1:leng, rte = 1:nrte], sum(import_country[cc,t,rte] for t in 1:nmonth))
@@ -404,7 +408,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
 
     # Monthly transmission imports
     @constraint(model, c_trans_in_country[cct = 1:leng, t=1:nmonth, ccf = 1:leng], trans_in_country[cct,t,ccf] <= derate_pipelines*Days_per_month[t]*trans_in_df[cct,ccf])
-    @constraint(model, c_baltic[cct = 18, t = 1:9, ccf = 4], trans_in_country[cct,t,ccf] == 0.0)
+    @constraint(model, c_baltica[cct = 4, t = 1:9, ccf = 18], trans_in_country[cct,t,ccf] == 0.0)
+    @constraint(model, c_balticb[cct = 18, t = 1:9, ccf = 4], trans_in_country[cct,t,ccf] == 0.0)
     @constraint(model, c_trans_in_month[cct = 1:leng, t = 1:nmonth], trans_in[cct,t] == sum(trans_in_country[cct,t,ccf] for ccf in 1:leng))
 
 
@@ -416,6 +421,16 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     # Monthly transmission matches on each side of the pipe
     @constraint(model, c_trans_in_match[cct = 1:leng, t = 1:nmonth, ccf = 1:leng], trans_in_country[cct,t,ccf] == trans_out_country[ccf, t, cct]) 
     
+    # Phasing in PCI transmission
+    @constraint(model, GIPLa[cct = 18, t = 1, ccf = 13], trans_in_country[cct,t,ccf] == 0.0)
+    @constraint(model, GIPLb[cct = 13, t = 1, ccf = 18], trans_in_country[cct,t,ccf] == 0.0)
+    @constraint(model, IPSa[cct = 18, t = 1:3, ccf = 22], trans_in_country[cct,t,ccf] == 0.0)
+    @constraint(model, IPSb[cct = 22, t = 1:3, ccf = 18], trans_in_country[cct,t,ccf] == 0.0)
+    @constraint(model, IGBa[cct = 2, t = 1:5, ccf = 7], trans_in_country[cct,t,ccf] <= Days_per_month[t]*6.038754996)
+    @constraint(model, IGBb[cct = 7, t = 1:5, ccf = 2], trans_in_country[cct,t,ccf] <= Days_per_month[t]*10.97389708)
+    @constraint(model, ISBa[cct = 2, t = 1:17, ccf = 26], trans_in_country[cct,t,ccf] <= 31.7600159 - 0.410958904)
+    @constraint(model, ISBb[cct = 26, t = 1:17, ccf = 2], trans_in_country[cct,t,ccf] <= 39.98569055 - 2.73972602)
+
     # Overall gas balance for each country in each month
     @constraint(model, cGasBal[cc = 1:leng, t = 1:nmonth], shortfall[cc,t] + trans_in[cc,t] + import_in_month[cc,t] + prod_eq[cc,t] + biogas_eq[cc,t] + storage_out[cc,t]  == demand_eq[cc, t] + trans_out[cc,t] + storage_in[cc,t])
 
