@@ -488,6 +488,9 @@ function printout(folder::AbstractString, model::Model, country_df::DataFrame, n
     output = "Outputs"
     out_path = joinpath(folder, output)
     output_path = joinpath(out_path, case)
+    if isdir(out_path) == false
+        mkdir(out_path)
+    end
     if isdir(output_path) == false
         cd(out_path)
         mkdir(case)
@@ -700,7 +703,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_Final_v5"
+    post = "Post_New"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
@@ -711,7 +714,7 @@ function main()
     no_reduc = false
     rus_cut = 2 # 1 is June cut, 2 is oct, 3 is no cut - should be paired with no_reduc as a zero emissions test case
     EU_stor = false
-    no_turkst = false
+    no_turkst = true
     # LNG OPT - FALSE
 
     # Get set of input scenarios

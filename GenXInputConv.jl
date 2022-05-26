@@ -1,6 +1,6 @@
 using CSV, DelimitedFiles, DataFrames
 
-Post_path() = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model\\Inputs\\Post_New"
+Post_path() = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model\\Inputs\\Post_Accel"
 CSVdf(path::AbstractString) = CSV.read(path, header = 1, DataFrame)
 dfCSV(path::AbstractString, df::DataFrame) = CSV.write(path, df)
 
@@ -22,6 +22,14 @@ function reformat_cols(df::DataFrame)
     select!(df, Not(:Month_1))
     select!(df, Not(:Month_2))
     select!(df, Not(:Month_3))
+    return df
+end
+
+function cut_cols(df::DataFrame)
+    # Select Correct Cols
+    select!(df, Not(:zone))
+    select!(df, Not(:Percent_e))
+    select!(df, Not(:Name))
     return df
 end
 
@@ -48,7 +56,7 @@ function main()
     for file in list_inputs
         df = CSVdf(file)
         df = move_ireland(df)
-        # df = reformat_cols(df) # For future should swap order of this and next, but doesn't matter now
+        df = cut_cols(df) # For future should swap order of this and next, but doesn't matter now
         df = add_countries(df)
         dfCSV(file,df)
     end
