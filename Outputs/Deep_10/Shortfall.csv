@@ -1,29 +1,29 @@
-Code,Country,Column3,Column4,Column5,Column6,Column7,Column8,Column9,Column10,Column11,Column12,Column13,Column14,Column15,Column16,Column17,Column18,Column19,Column20,Column21,Column22,Column23,Column24,Column25,Column26,Column27,Column28,Column29,Column30,Column31,Column32,Shortfall,Shortfall/Demand
-1,Belgium,EU 27,,Belgium,Bulgaria,Czechia,Denmark,Germany,Estonia,Greece,Spain,France,Croatia,Italy,Latvia,Lithuania,Luxembourg,Hungary,Netherlands,Austria,Poland,Portugal,Romania,Slovenia,Slovakia,Finland,UK,North Macedonia,Serbia,Moldova,Ireland,0.0,0.0
-2,Bulgaria,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2.5466718870170983,0.3066238506606975
-3,Czechia,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-4,Denmark,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-5,Germany,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,60.84368136666875,0.2098206070528759
-6,Estonia,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-7,Greece,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0869886936030348,0.007516994094853776
-8,Spain,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-9,France,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-10,Croatia,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.67298464,0.08333333333333333
-11,Italy,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-12,Latvia,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-13,Lithuania,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-14,Luxembourg,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-15,Hungary,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-16,Netherlands,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-17,Austria,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-18,Poland,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-19,Portugal,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-20,Romania,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-21,Slovenia,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-22,Slovakia,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,7.65525986167545,0.6249999999999999
-23,Finland,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.1556635205947854,0.022204808021688793
-24,UK,NonEU,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-25,North Macedonia,NonEU,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
-26,Serbia,NonEU,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,4.2798660673737,0.5
-27,Moldova,NonEU,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.3190495212977879,0.07904464928374855
-28,Ireland,EU 27,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0.0,0.0
+Code,Country,Column3,Shortfall,Shortfall/Demand
+1,Belgium,EU 27,0.0,0.0
+2,Bulgaria,EU 27,0.0,0.0
+3,Czechia,EU 27,0.0,0.0
+4,Denmark,EU 27,0.0,0.0
+5,Germany,EU 27,61.3982601876358,0.2076984734070073
+6,Estonia,EU 27,0.0,0.0
+7,Greece,EU 27,0.0,0.0
+8,Spain,EU 27,0.0,0.0
+9,France,EU 27,0.0,0.0
+10,Croatia,EU 27,0.0,0.0
+11,Italy,EU 27,0.0,0.0
+12,Latvia,EU 27,0.0,0.0
+13,Lithuania,EU 27,0.0,0.0
+14,Luxembourg,EU 27,0.0,0.0
+15,Hungary,EU 27,0.0,0.0
+16,Netherlands,EU 27,0.0,0.0
+17,Austria,EU 27,0.0,0.0
+18,Poland,EU 27,0.0,0.0
+19,Portugal,EU 27,0.0,0.0
+20,Romania,EU 27,0.0,0.0
+21,Slovenia,EU 27,0.0,0.0
+22,Slovakia,EU 27,0.0,0.0
+23,Finland,EU 27,0.049665781114900796,0.01346846556995419
+24,UK,NonEU,0.0,0.0
+25,North Macedonia,NonEU,0.0,0.0
+26,Serbia,NonEU,0.0,0.0
+27,Moldova,NonEU,0.353657521297788,0.08613506616954726
+28,Ireland,EU 27,0.0,0.0
