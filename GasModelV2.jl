@@ -398,6 +398,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @constraint(model, tanap2[t = 10:nmonth], import_country[7, t, rte_turk] <= Days_per_month[t]*tanap[2])
     
     @constraint(model, import_month[cc = 1:leng, t = 1:nmonth], import_in_month[cc,t] == sum(import_country[cc,t,rte] for rte in 1:nrte))
+    @constraint(model, russia_mar, sum(import_country[cc,1,rte_russia] for cc in 1:leng) == 8270)
     @expression(model, imports_tot[cc = 1:leng, rte = 1:nrte], sum(import_country[cc,t,rte] for t in 1:nmonth))
     @expression(model, imports_rte[rte = 1:nrte], sum(imports_tot[cc,rte] for cc in 1:leng))
     @expression(model, imports_complete, sum(imports_tot[cc, rte] for cc in 1:leng, rte in 1:nrte))
@@ -460,6 +461,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
 
     # Objectives
     K = 10^-3
+    @expression(model, tot_russia, imports_rte[rte_russia])
     @expression(model, shortfall_propa[cc= 1:14, t = 1:nmonth], (1/(demand[cc,t])*shortfall[cc,t]))
     @expression(model, shortfall_propb[cc= 16:21, t = 1:nmonth], (1/(demand[cc,t])*shortfall[cc,t]))
     @expression(model, shortfall_propc[cc= 23:leng, t = 1:nmonth], (1/(demand[cc,t])*shortfall[cc,t]))
@@ -477,7 +479,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
     #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng))
-    @expression(model, obj, sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
+    @expression(model, obj, K*tot_russia + sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
     @objective(model, Min, obj) # note - includes a weak emissions optimization  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[5] + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*tot_shortfall 
 
     return model, country_df
@@ -735,7 +737,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_New"
+    post = "Post_Accel"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
