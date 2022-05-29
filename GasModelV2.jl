@@ -477,7 +477,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
     #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng))
-    @expression(model, obj, K*total_LNG  + sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG +
+    @expression(model, obj, sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
     @objective(model, Min, obj) # note - includes a weak emissions optimization  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[5] + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*tot_shortfall 
 
     return model, country_df
@@ -735,7 +735,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_Accel"
+    post = "Post_New"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
