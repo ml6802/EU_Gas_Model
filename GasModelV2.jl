@@ -244,7 +244,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     else
         nrte = ncol(imports_df)
     end
-    Days_per_month = [31,28,31,30,31,30,31,31,30,31,30,31,31,28,31,30,31,30,31,31,30,31,30,31]#
+    Days_per_month = [30,31,30,31,31,30,31,30,31,31,28,31,30,31,30,31,31,30,31,30,31,31,28,31]#
     #if rus_cut == 1 # cut in june
     #    rus_df = [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]#0.5,0.4,0.3,0.1
     ##elseif rus_cut == 2 # cut in oct
