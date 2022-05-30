@@ -6,7 +6,8 @@ using DelimitedFiles
 ###### All units in model in mcm - converted to bcm before output
 
 ## To Dos:
-# Phase in new projects - Apr 22 - March 24
+# Phase in new projects - 2025-2026
+# Remove ramping
 
 # Reading in CSVs
 function initialize_data(folder::AbstractString, imports_vol::Bool)
@@ -244,7 +245,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     else
         nrte = ncol(imports_df)
     end
-    Days_per_month = [31,28,31,30,31,30,31,31,30,31,30,31,31,28,31,30,31,30,31,31,30,31,30,31]#
+    Days_per_month = [30,31,30,31,31,30,31,30,31,31,28,31,30,31,30,31,31,30,31,30,31,31,28,31]#
     #if rus_cut == 1 # cut in june
     #    rus_df = [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]#0.5,0.4,0.3,0.1
     ##elseif rus_cut == 2 # cut in oct
@@ -737,7 +738,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_Accel"
+    post = "Post_2025"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
