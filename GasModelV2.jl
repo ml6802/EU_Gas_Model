@@ -443,8 +443,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @constraint(model, IPSb[cct = 22, t = 1:3, ccf = 18], trans_in_country[cct,t,ccf] == 0.0)
     @constraint(model, IGBa[cct = 2, t = 1:5, ccf = 7], trans_in_country[cct,t,ccf] <= Days_per_month[t]*6.038754996)
     @constraint(model, IGBb[cct = 7, t = 1:5, ccf = 2], trans_in_country[cct,t,ccf] <= Days_per_month[t]*10.97389708)
-    @constraint(model, ISBa[cct = 2, t = 1:17, ccf = 26], trans_in_country[cct,t,ccf] <= 31.7600159 - 0.410958904)
-    @constraint(model, ISBb[cct = 26, t = 1:17, ccf = 2], trans_in_country[cct,t,ccf] <= 39.98569055 - 2.73972602)
+    @constraint(model, ISBa[cct = 2, t = 1:17, ccf = 26], trans_in_country[cct,t,ccf] <= Days_per_month[t]*(31.7600159 - 0.410958904))
+    @constraint(model, ISBb[cct = 26, t = 1:17, ccf = 2], trans_in_country[cct,t,ccf] <= Days_per_month[t]*(39.98569055 - 2.73972602))
 
     # Overall gas balance for each country in each month
     @constraint(model, cGasBal[cc = 1:leng, t = 1:nmonth], shortfall[cc,t] + trans_in[cc,t] + import_in_month[cc,t] + prod_eq[cc,t] + biogas_eq[cc,t] + storage_out[cc,t]  == demand_eq[cc, t] + trans_out[cc,t] + storage_in[cc,t])
@@ -737,7 +737,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_Accel"
+    post = "Post_New"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
