@@ -239,7 +239,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     nmonth = ncol(demand_df) # Make sure everything has same number of countries, months, and sectors
     nsec = ncol(sector_df)
     P = 10^5
-    phased_LNG = true
+    phased_LNG = false
     if phased_LNG == true
         nrte = ncol(imports_df) - 1 # remove - 1 if not doing phased lng
     else
@@ -362,19 +362,22 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
             import_23[:,3] = derate_LNG/derate_imports*import_23[:,3]
             @constraint(model, LNG_expansion_b[cc = 1:leng, t = 10:nmonth, rte = 1:nrte], import_country[cc, t, rte] <= Days_per_month[t]*import_23[cc,rte])
         end
-    else
-        imports_df = derate_imports * imports_df
-        imports_df[:,3] = derate_LNG/derate_imports*imports_df[:,3]
-        @constraint(model, c_import_country[cc = 1:leng, t=1:nmonth, rte = 1:nrte], import_country[cc,t,rte] <= Days_per_month[t]*imports_df[cc,rte])
-    end
-    
-    rte_russia = nrte-1
+        rte_russia = nrte-1
     @constraint(model, rus_phasea[cc = 1:leng, t = 1:9], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[cc,t]*import_22[cc,rte_russia])
     @constraint(model, rus_phaseb[cc = 1:leng, t = 10:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[cc,t]*import_23[cc,rte_russia]) # Russian gas phaseout
-    @constraint(model, rus_cutbulg1, sum(import_country[2,t,rte_russia] for t in 2:9) <= sum(Days_per_month[t]*import_22[2,rte_russia] for t in 2:9) - cut_dem[1])
-    @constraint(model, rus_cutbulg2, sum(import_country[2,t,rte_russia] for t in 10:22) <= sum(Days_per_month[t]*import_23[2,rte_russia] for t in 10:22) - cut_dem[1])
-    @constraint(model, rus_cutpol1, sum(import_country[18,t,rte_russia] for t in 2:9) <= sum(Days_per_month[t]*import_22[18,rte_russia] for t in 2:9) - cut_dem[2])
-    @constraint(model, rus_cutpol2, sum(import_country[18,t,rte_russia] for t in 10:22) <= sum(Days_per_month[t]*import_23[18,rte_russia] for t in 10:22) - cut_dem[2])
+    else
+        imports_df = derate_imports * Matrix(imports_df)
+        imports_df[:,3] = derate_LNG/derate_imports*imports_df[:,3]
+        @constraint(model, c_import_country[cc = 1:leng, t=1:nmonth, rte = 1:nrte], import_country[cc,t,rte] <= Days_per_month[t]*imports_df[cc,rte])
+        rte_russia = nrte-1
+        @constraint(model, rus_phasea[cc = 1:leng, t = 1:nmonth], import_country[cc,t,rte_russia] <= Days_per_month[t]*rus_df[cc,t]*imports_df[cc,rte_russia])
+    end
+    
+    
+    #@constraint(model, rus_cutbulg1, sum(import_country[2,t,rte_russia] for t in 2:9) <= sum(Days_per_month[t]*import_22[2,rte_russia] for t in 2:9) - cut_dem[1])
+    #@constraint(model, rus_cutbulg2, sum(import_country[2,t,rte_russia] for t in 10:22) <= sum(Days_per_month[t]*import_23[2,rte_russia] for t in 10:22) - cut_dem[1])
+    #@constraint(model, rus_cutpol1, sum(import_country[18,t,rte_russia] for t in 2:9) <= sum(Days_per_month[t]*import_22[18,rte_russia] for t in 2:9) - cut_dem[2])
+    #@constraint(model, rus_cutpol2, sum(import_country[18,t,rte_russia] for t in 10:22) <= sum(Days_per_month[t]*import_23[18,rte_russia] for t in 10:22) - cut_dem[2])
     cap_dead = 20.62
     if rus_cut == 3
         @constraint(model, rus_amount, sum(import_country[cc,t,rte_russia] for cc in 1:leng, t in 1:12) == 138400)
@@ -417,21 +420,21 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, shortfall_month[t = 1:nmonth], sum(shortfall[cc,t] for cc in 1:leng))
     @expression(model, LNG_month[t=1:nmonth], sum(import_country[cc,t,3] for cc in 1:leng))
     @expression(model, storage_fill_month[t = 1:nmonth], sum(storage_fill[cc,t] for cc in 1:leng))
-    @constraint(model, c_total_lng1, e_total_lng1 <= LNG_market_cap)
-    @constraint(model, c_total_lng2, e_total_lng2 <= LNG_market_cap)
+    # @constraint(model, c_total_lng1, e_total_lng1 <= LNG_market_cap)
+    # @constraint(model, c_total_lng2, e_total_lng2 <= LNG_market_cap)
     # @constraint(model, lng_req, sum(imports_tot[cc, 3] for cc in 1:leng) >= lng_inc*1000)
     # 
 
     # Monthly transmission imports
     @constraint(model, c_trans_in_country[cct = 1:leng, t=1:nmonth, ccf = 1:leng], trans_in_country[cct,t,ccf] <= derate_pipelines*Days_per_month[t]*trans_in_df[cct,ccf])
-    @constraint(model, c_baltica[cct = 4, t = 1:9, ccf = 18], trans_in_country[cct,t,ccf] == 0.0)
-    @constraint(model, c_balticb[cct = 18, t = 1:9, ccf = 4], trans_in_country[cct,t,ccf] == 0.0)
+    #@constraint(model, c_baltica[cct = 4, t = 1:9, ccf = 18], trans_in_country[cct,t,ccf] == 0.0)
+    #@constraint(model, c_balticb[cct = 18, t = 1:9, ccf = 4], trans_in_country[cct,t,ccf] == 0.0)
     @constraint(model, c_trans_in_month[cct = 1:leng, t = 1:nmonth], trans_in[cct,t] == sum(trans_in_country[cct,t,ccf] for ccf in 1:leng))
 
 
     # Monthly transmission exports
     @constraint(model, c_trans_out_country[ccf = 1:leng, t=1:nmonth, cct = 1:leng], trans_out_country[ccf,t,cct] <= derate_pipelines*Days_per_month[t]*trans_out_df[ccf,cct])
-    @constraint(model, c_baltic_exp[ccf = 4, t = 1:9, cct = 18], trans_out_country[ccf,t,cct] == 0.0)
+    #@constraint(model, c_baltic_exp[ccf = 4, t = 1:9, cct = 18], trans_out_country[ccf,t,cct] == 0.0)
     @constraint(model, c_trans_out_month[ccf = 1:leng, t = 1:nmonth], trans_out[ccf,t] == sum(trans_out_country[ccf,t,cct] for cct in 1:leng))
 
     # Monthly transmission matches on each side of the pipe
@@ -480,7 +483,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
     #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng))
-    @expression(model, obj, K*tot_russia + sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
+    @expression(model, obj, sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
     @objective(model, Min, obj) # note - includes a weak emissions optimization  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[5] + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*tot_shortfall 
 
     return model, country_df
@@ -625,9 +628,12 @@ function parse_chp_level(name::AbstractString)
     base = "Base"
     mod = "Moderate"
     deep = "Deep"
+    double = "Double"
     low_chp = Array{Bool,1}(undef, 4)
     low_chp[1] = occursin(zero, name)
-    low_chp[2] = occursin(base, name)
+    if occursin(base, name) || occursin(double, name)
+        low_chp[2] = true
+    end
     low_chp[3] = occursin(mod, name)
     low_chp[4] = occursin(deep, name)
     return low_chp
@@ -711,7 +717,7 @@ function demand_builder(sec_reduc_df::AbstractArray, sector_df::AbstractDataFram
     leng = nrow(sector_df)
     nmonth = ncol(demand_df)
     nsec = ncol(sector_df)
-    reduc_end = 2
+    reduc_end = 0
 
     demand_sector_reduc_df = Array{Float64, 3}(undef, (leng, nmonth, nsec))
     # ire_demand_tot = zeros(nmonth)

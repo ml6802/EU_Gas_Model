@@ -1,6 +1,6 @@
 using CSV, DelimitedFiles, DataFrames
 
-Post_path() = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model\\Inputs\\Post_Accel"
+Post_path() = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model\\Inputs\\Post_2025"
 CSVdf(path::AbstractString) = CSV.read(path, header = 1, DataFrame)
 dfCSV(path::AbstractString, df::DataFrame) = CSV.write(path, df)
 
@@ -56,7 +56,7 @@ function main()
     for file in list_inputs
         df = CSVdf(file)
         df = move_ireland(df)
-        df = cut_cols(df) # For future should swap order of this and next, but doesn't matter now
+        df = reformat_cols(df) # For future should swap order of this and next, but doesn't matter now
         df = add_countries(df)
         dfCSV(file,df)
     end
