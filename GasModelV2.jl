@@ -284,6 +284,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, demand_sector_reduc[cc = 1:leng, t = 1:nmonth, sec = 1:nsec], demand_sector_reduc_df[cc,t,sec])
     @expression(model, demand[cc = 1:leng, t = 1:nmonth], sum(demand_sector_reduc[cc,t,sec] for sec in 1:nsec))
     @expression(model, demand_by_sec[sec = 1:nsec], sum(demand_sector_reduc[cc,t,sec] for cc in 1:leng, t in 1:nmonth))
+    @expression(model, demand_by_sec22[sec = 1:nsec], sum(demand_sector_reduc[cc,t,sec] for cc in 1:leng, t in 1:12))
+    @expression(model, demand_by_sec23[sec = 1:nsec], sum(demand_sector_reduc[cc,t,sec] for cc in 1:leng, t in 13:nmonth))
     @expression(model, demand_com, demand_by_sec[5])
     @expression(model, demand_chp, demand_by_sec[2])
     @expression(model, demand_ind, demand_by_sec[3])
@@ -360,6 +362,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
             #print(import_23)
             import_23[:,3] = derate_LNG/derate_imports*import_23[:,3]
             @constraint(model, LNG_expansion_b[cc = 1:leng, t = 10:nmonth, rte = 1:nrte], import_country[cc, t, rte] <= Days_per_month[t]*import_23[cc,rte])
+            @constraint(model, alexandroupolis[cc = 7, t = 1:9, rte=3], import_country[cc, t, rte] <= Days_per_month[t]*19.091)
+            @constraint(model, alexandroupolis[cc = 7, t = 1:9, rte=3], import_country[cc, t, rte] <= Days_per_month[t]*(19.091+6.85))
         end
     else
         imports_df = derate_imports * imports_df
@@ -376,8 +380,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @constraint(model, rus_cutpol2, sum(import_country[18,t,rte_russia] for t in 10:22) <= sum(Days_per_month[t]*import_23[18,rte_russia] for t in 10:22) - cut_dem[2])
     cap_dead = 20.62
     if rus_cut == 3
-        @constraint(model, rus_amount, sum(import_country[cc,t,rte_russia] for cc in 1:leng, t in 1:12) == 138400)
-        @constraint(model, rus_amountb, sum(import_country[cc,t,rte_russia] for cc in 1:leng, t in 13:24) == 138400)
+        @constraint(model, rus_amount, sum(import_country[cc,t,rte_russia] for cc in 1:leng, t in 1:12) == 121435)
+        @constraint(model, rus_amountb, sum(import_country[cc,t,rte_russia] for cc in 1:leng, t in 13:24) == 121435)
         #@constraint(model, demand_c2[cc in 1:leng, t in 1:nmonth], demand_eq[cc,t] == demand[cc,t])
         @constraint(model, lng_statusa, sum(import_country[cc,t,3] for cc in 1:leng, t in 1:12) == 93700)
         @constraint(model, lng_statusb, sum(import_country[cc,t,3] for cc in 1:leng, t in 13:24) == 93700)
@@ -490,8 +494,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, tot_stor_short10, sum(storage_gap[cc,1] for cc in 1:leng))
     @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
-    #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng))
-    @expression(model, obj, K*total_LNG + K*tot_russia + sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
+    #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng)) 
+    @expression(model, obj, K*tot_russia + sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
     @objective(model, Min, obj) # note - includes a weak emissions optimization  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[5] + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*tot_shortfall 
 
     return model, country_df
@@ -700,12 +704,19 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
         em_dom_tot2324 = 1/1000000*value(model[:em_dom_2324]) # in MegaTonnes/year
         em_up_tot2324 = 1/1000000*value(model[:imp_em_uptot2324])
         em_tot = 1/1000000*value(model[:em_tot]) # in MegaTonnes/2 years
-        dr_tot =  1/1000*value.(model[:demand_by_sec])
-        dr_ind = dr_tot[3]
-        dr_chp = dr_tot[2]
-        dr_dom = dr_tot[4]
-        dr_com = dr_tot[5]
-        return tot_LNG, tot_gas, tot_shortfall, stor_shortfall10, stor_shortfall22, import_tot, em_dom_tot2223, em_up_tot2223, em_dom_tot2324, em_up_tot2324, em_tot, dr_ind, dr_chp,dr_dom,dr_com
+        dr_tot22 =  1/1000*value.(model[:demand_by_sec22])
+        dr_tot23 =  1/1000*value.(model[:demand_by_sec23])
+        dr_elec22 = dr_tot22[1]
+        dr_ind22 = dr_tot22[3]
+        dr_chp22 = dr_tot22[2]
+        dr_dom22 = dr_tot22[4]
+        dr_com22 = dr_tot22[5]
+        dr_elec23 = dr_tot23[1]
+        dr_ind23 = dr_tot23[3]
+        dr_chp23 = dr_tot23[2]
+        dr_dom23 = dr_tot23[4]
+        dr_com23 = dr_tot23[5]
+        return tot_LNG, tot_gas, tot_shortfall, stor_shortfall10, stor_shortfall22, import_tot, em_dom_tot2223, em_up_tot2223, em_dom_tot2324, em_up_tot2324, em_tot, dr_elec22, dr_ind22, dr_chp22,dr_dom22,dr_com22,dr_elec23, dr_ind23, dr_chp23,dr_dom23,dr_com23
     else
         conflict_constraint_list = ConstraintRef[]
         for (F, S) in list_of_constraint_types(model)
@@ -751,7 +762,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_Final_v5"
+    post = "Post_Accel"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
@@ -784,17 +795,23 @@ function main()
     em_dom_tot2324 = zeros(length(elec_files))
     em_up_tot2324 = zeros(length(elec_files))
     em_tot = zeros(length(elec_files))
-    dr_ind = zeros(length(elec_files))
-    dr_chp = zeros(length(elec_files))
-    dr_com = zeros(length(elec_files))
-    dr_dom = zeros(length(elec_files))
+    dr_elec22 = zeros(length(elec_files))
+    dr_ind22 = zeros(length(elec_files))
+    dr_chp22 = zeros(length(elec_files))
+    dr_com22 = zeros(length(elec_files))
+    dr_dom22 = zeros(length(elec_files))
+    dr_elec23 = zeros(length(elec_files))
+    dr_ind23 = zeros(length(elec_files))
+    dr_chp23 = zeros(length(elec_files))
+    dr_com23 = zeros(length(elec_files))
+    dr_dom23 = zeros(length(elec_files))
     names = Array{AbstractString,1}(undef, length(elec_files))
     for m in elec_files
         counter = counter + 1
-        lng_cases[counter], aggregate_demand[counter], ag_short[counter], stor_short10[counter], stor_short22[counter], import_tot[counter], em_dom_tot2223[counter], em_up_tot2223[counter], em_dom_tot2324[counter], em_up_tot2324[counter], em_tot[counter], dr_ind[counter], dr_chp[counter], dr_dom[counter], dr_com[counter]  = runner(input_path, post_path, m, folder, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df, imports_vol, no_reduc, rus_cut, EU_stor, no_turkst, rus_df)
+        lng_cases[counter], aggregate_demand[counter], ag_short[counter], stor_short10[counter], stor_short22[counter], import_tot[counter], em_dom_tot2223[counter], em_up_tot2223[counter], em_dom_tot2324[counter], em_up_tot2324[counter], em_tot[counter], dr_elec22[counter],dr_ind22[counter], dr_chp22[counter], dr_dom22[counter], dr_com22[counter], dr_elec23[counter],dr_ind23[counter], dr_chp23[counter], dr_dom23[counter], dr_com23[counter]  = runner(input_path, post_path, m, folder, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df, imports_vol, no_reduc, rus_cut, EU_stor, no_turkst, rus_df)
         names[counter] = removecsv(m)
     end
-    plotting_df = DataFrame(Case=names, LNG=lng_cases, Demand=aggregate_demand, Shortfall=ag_short, StorageShort10=stor_short10,StorageShort22=stor_short22,Imports=import_tot, DomEmissions2223=em_dom_tot2223, DomEmissions2324=em_dom_tot2324, UpEmissions2223=em_up_tot2223, UpEmissions2324=em_up_tot2324, EmissionsTot=em_tot, Industry=dr_ind,CHP=dr_chp,Residential=dr_dom,Commercial=dr_com)
+    plotting_df = DataFrame(Case=names, LNG=lng_cases, Demand=aggregate_demand, Shortfall=ag_short, StorageShort10=stor_short10,StorageShort22=stor_short22,Imports=import_tot, DomEmissions2223=em_dom_tot2223, DomEmissions2324=em_dom_tot2324, UpEmissions2223=em_up_tot2223, UpEmissions2324=em_up_tot2324, EmissionsTot=em_tot, Elec22=dr_elec22, Ind22=dr_ind22,CHP22=dr_chp22,Residential22=dr_dom22,Commercial22=dr_com22,Elec23=dr_elec23, Ind23=dr_ind23,CHP23=dr_chp23,Residential23=dr_dom23,Commercial23=dr_com23)
     CSV.write(outpath, plotting_df)
 end
 
