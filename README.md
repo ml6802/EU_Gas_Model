@@ -39,5 +39,17 @@ Instructions for model operation are as follows:
   - CHP Usage: 0%, 2%, 4%, 8%
 
 # Model Structure Description
-  This is a linear programming model designed to represent all key technical constraints of the European gas network at country-level spatial resolution and monthly temporal resolution. The current model setup includes 28 countries over the course of 24 months, the full list of which is included in CountryList.csv. Due to the Ukrainian ban on gas exports and significant uncertainty in Ukrainian gas demand, we specifically exclude Ukrainian gas storage, demand, production, and transmission from consideration (Stuart, 2022). Additionally, due to their objections to the EU oil embargo, we similarly exclude Hungarian and Slovakian storage, demand, and production while allowing the continued use of Hungarian and Slovakian gas transmission by the rest of the European system. It is assumed that Hungary and Slovakia can source all their domestic gas demands through continued imports from Russia.
+  This is a linear programming model designed to represent all key technical constraints of the European gas network at country-level spatial resolution and monthly temporal resolution. The current model setup includes 28 countries over the course of 24 months, the full list of which is included in CountryList.csv. Due to the Ukrainian ban on gas exports and significant uncertainty in Ukrainian gas demand, we specifically exclude Ukrainian gas storage, demand, production, and transmission from consideration (Stuart, 2022). Additionally, due to their objections to the EU oil embargo, we similarly exclude Hungarian and Slovakian storage, demand, and production while allowing the continued use of Hungarian and Slovakian gas transmission by the rest of the European system. It is assumed that Hungary and Slovakia can source all their domestic gas demands through continued imports from Russia. A full printout of the model formulation is available by uncommenting lines 536 and 537 of GasModelV2.jl. For the sake of transparency, the remainder of this ReadMe will be dedicated to exploring the mathematical formulation of key constraints and the objective statement of this model.
+  
+## Demand Constraints
+
+## Storage Constraints
+
+## Import Constraints
+
+## Transmission Constraints
+
+## Balance Constraints
+
+## Objective Statement Design
   
