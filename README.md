@@ -55,7 +55,8 @@ Instructions for model operation are as follows:
  
 ## Balance Constraint
   The overall gas balance was ensured by a constraint that for every country and every month gas was conserved between entities. This required the following:
-  $$ shortfall[cc,t] + transmissionin[cc,t] + imports[cc,t] + production[cc,t] + biogas[cc,t] + storagewithdrawals[cc,t] \n== demandeq[cc,t] + transmissionout[cc,t] + storageinjections[cc,t] $$
+  $$ shortfall[cc,t] + transmissionin[cc,t] + imports[cc,t] + production[cc,t] + biogas[cc,t] + storagewithdrawals[cc,t] $$
+  $$ == demandeq[cc,t] + transmissionout[cc,t] + storageinjections[cc,t] $$
 
 ## Objective Statement Design
   As cost is not included in this model, we needed to minimize three things simultaneously. First, the share of Russian gas was minimized with a soft penalty, encouraging the model to push that to zero when it could do so without sacrificing other outcomes. Second, shortfall proportions, characterized as the shortfall for a given country in a given month divided by its demand, in order to avoid dumping shortfalls into small countries without consideration, and to minimize shortfall generally. Third, the storage gap was minimized to penalize not meeting storage goals. The full objective statement formulation is as follows, where K = 10^-3 and P = 10^5:
