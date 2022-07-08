@@ -59,9 +59,7 @@ Instructions for model operation are as follows:
   $$ == demandeq[cc,t] + transmissionout[cc,t] + storageinjections[cc,t] $$
 
 ## Objective Statement Design
-  As cost is not included in this model, we needed to minimize three things simultaneously. First, the share of Russian gas was minimized with a soft penalty, encouraging the model to push that to zero when it could do so without sacrificing other outcomes. Second, shortfall proportions, characterized as the shortfall for a given country in a given month divided by its demand, in order to avoid dumping shortfalls into small countries without consideration, and to minimize shortfall generally. Third, the storage gap was minimized to penalize not meeting storage goals. The full objective statement formulation is as follows, where K = 10^-3 and P = 10^5:
-  $$ K * totrussia + sum(P * vshortfallpropa[cc,t])+ sum(P * shortfallpropb[cc,t])+ sum(P * shortfallpropc[cc,t])+ P * P * shortfallpropsuma[11] $$
-  $$ + P * P * shortfallpropsumb[18] + P * P * shortfallpropsuma[3] + P * P * shortfallpropsuma[3] + P * P * shortfallpropsumb[17] $$
-  $$ + P * P * shortfallpropsumb[20] + storagegap10 + storagegap22) $$
+  As cost is not included in this model, we needed to minimize three things simultaneously. First, the share of Russian gas was minimized with a soft penalty, encouraging the model to push that to zero when it could do so without sacrificing other outcomes. Second, shortfall proportions, characterized as the shortfall for a given country in a given month divided by its demand, in order to avoid dumping shortfalls into small countries without consideration, and to minimize shortfall generally. Third, the storage gap was minimized to penalize not meeting storage goals. A simplified objective statement formulation is as follows, where K = 10^-3 and P = 10^5:
+  $$ minimize K * totrussia + \sum_cc,t{P * shortfallprop} + storagegap10 + storagegap22) $$
   
   
