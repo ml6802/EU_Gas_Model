@@ -42,14 +42,27 @@ Instructions for model operation are as follows:
   This is a linear programming model designed to represent all key technical constraints of the European gas network at country-level spatial resolution and monthly temporal resolution. The current model setup includes 28 countries over the course of 24 months, the full list of which is included in CountryList.csv. Due to the Ukrainian ban on gas exports and significant uncertainty in Ukrainian gas demand, we specifically exclude Ukrainian gas storage, demand, production, and transmission from consideration (Stuart, 2022). Additionally, due to their objections to the EU oil embargo, we similarly exclude Hungarian and Slovakian storage, demand, and production while allowing the continued use of Hungarian and Slovakian gas transmission by the rest of the European system. It is assumed that Hungary and Slovakia can source all their domestic gas demands through continued imports from Russia. A full printout of the model formulation is available by uncommenting lines 536 and 537 of GasModelV2.jl. For the sake of transparency, the remainder of this ReadMe will be dedicated to exploring the mathematical formulation of key constraints and the objective statement of this model.
   
 ## Demand Constraints
-
+  Minimum demand levels are enforced by creating both a demand_eq variable, the actual consumption of gas as allowed by the model, and a demand expression, which compiles the various country-level sectoral reductions into the minimum allowable level of demand in a given country in a given month. The demand_eq variable must always be greater than the demand expression. We introduced a shortfall variable here to represent true demand shortfalls.
+  
 ## Storage Constraints
-
+  We constrain the maximum storage fill level to always be below the working gas capacity of all gas storage in a given country. Fill level continutity is provided by a constraint which ensures that the fill level in a given month is equal to the previous month's fill level plus additions and minus withdrawals. We track the fill level both as a proportion of total storage filled, and in terms of mcm gas. Winter fill requirements are implemented in two ways. If the EU 90% storage requirements must be met, the following constraint is implemented: Fill + Gap >= .9 * storage capacity for all countries in October of each year. We construct a scaled storage requirement designed to leverage demand reductions by scaling the 90% storage requirement by the ratio of demand from a given year's winter to winter 2021. It is implemented as follows: Fill + Gap >= 0.9 * demand_current/demand_2021 * storage capacity. The inclusion of a gap is crucial as it allows quantification of storage specific shortfalls as opposed to demand shortfalls. Maximum inject and withdrawal rates are constrained based on data from AGSI.
+  
 ## Import Constraints
+  All imports are constrained to be less than or equal to their respective previous winter volumes and upcoming capacity expansions. LNG ports are derated to be usable 97% of the time, however this capacity is rarely fully used in model outputs. Phase-outs and eliminations of Russian gas are imposed by monthly and country level constraints dictated by the RussiaReduc.csv file, with the exception of Bulgaria, Poland, Latvia, Lithuania, and Estonia, which had previously disconnected or been cut off from Russian gas.
 
 ## Transmission Constraints
-
-## Balance Constraints
+  Transmission continuity is ensured by separately calculating import and export values from each country, constrained to both be less than the derated transmission capacity and equal on both sides of each given transaction.
+ 
+## Balance Constraint
+  The overall gas balance was ensured by a constraint that for every country and every month gas was conserved between entities. This required the following:
+  $$
+  shortfall[cc,t] + transmission_in[cc,t] + imports[cc,t] + production[cc,t] + biogas[cc,t] + storage_withdrawals[cc,t] == demand_eq[cc,t] + transmission_out[cc,t] + storage_injections[cc,t]
+  $$
 
 ## Objective Statement Design
+  As cost is not included in this model, we needed to minimize three things simultaneously. First, the share of Russian gas was minimized with a soft penalty, encouraging the model to push that to zero when it could do so without sacrificing other outcomes. Second, shortfall proportions, characterized as the shortfall for a given country in a given month divided by its demand, in order to avoid dumping shortfalls into small countries without consideration, and to minimize shortfall generally. Third, the storage gap was minimized to penalize not meeting storage goals. The full objective statement formulation is as follows, where K = 10^-3 and P = 10^5:
+  $$
+  K*tot_russia + sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + tot_stor_short10 + tot_stor_short22)
+  $$
+  
   
