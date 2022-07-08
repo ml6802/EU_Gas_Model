@@ -60,6 +60,6 @@ Instructions for model operation are as follows:
 
 ## Objective Statement Design
   As cost is not included in this model, we needed to minimize three things simultaneously. First, the share of Russian gas was minimized with a soft penalty, encouraging the model to push that to zero when it could do so without sacrificing other outcomes. Second, shortfall proportions, characterized as the shortfall for a given country in a given month divided by its demand, in order to avoid dumping shortfalls into small countries without consideration, and to minimize shortfall generally. Third, the storage gap was minimized to penalize not meeting storage goals. A simplified objective statement formulation is as follows, where K = 10^-3 and P = 10^5:
-  $$ minimize:  K * totrussia + \sum_{cc}\sum_{t}{P * shortfallprop} + storagegap10 + storagegap22) $$
+  $$ minimize:  K * totrussia + \sum_{cc}\sum_{t}{P * shortfallprop} + storagegap10 + storagegap22 $$
   
   
