@@ -1,4 +1,4 @@
-using JuMP, CPLEX
+using JuMP, CPLEX, Clp
 using CSV
 using DataFrames
 using DelimitedFiles
@@ -363,7 +363,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
             import_23[:,3] = derate_LNG/derate_imports*import_23[:,3]
             @constraint(model, LNG_expansion_b[cc = 1:leng, t = 10:nmonth, rte = 1:nrte], import_country[cc, t, rte] <= Days_per_month[t]*import_23[cc,rte])
             @constraint(model, alexandroupolis[cc = 7, t = 1:9, rte=3], import_country[cc, t, rte] <= Days_per_month[t]*19.091)
-            @constraint(model, alexandroupolis[cc = 7, t = 1:9, rte=3], import_country[cc, t, rte] <= Days_per_month[t]*(19.091+6.85))
+            @constraint(model, alexandroupolisb[cc = 7, t = 10:nmonth, rte=3], import_country[cc, t, rte] <= Days_per_month[t]*(19.091+6.85))
         end
     else
         imports_df = derate_imports * imports_df
@@ -683,14 +683,14 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
     # ratio_a, ratio_b = storage_ratios(demand_sector_reduc_df, demand_df)
 
     # Create Model
-    model = Model(CPLEX.Optimizer)
+    model = Model(Clp.Optimizer)
     model, country_df = initialize_model!(model, demand_sector_reduc_df, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df, imports_vol, rus_cut, EU_stor, no_turkst, rus_df) #, ratio_a, ratio_b
 
     # Solve
     optimize!(model)
     # Print if feasible
-    compute_conflict!(model)
-    if MOI.get(model, MOI.ConflictStatus()) != MOI.CONFLICT_FOUND
+    #compute_conflict!(model)
+    #if MOI.get(model, MOI.ConflictStatus()) != MOI.CONFLICT_FOUND
         # print("No conflict could be found for an infeasible model.")
         printout(folder, model, country_df, nmonths, case)
         tot_LNG = 0.001*value(model[:total_LNG])
@@ -717,6 +717,7 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
         dr_dom23 = dr_tot23[4]
         dr_com23 = dr_tot23[5]
         return tot_LNG, tot_gas, tot_shortfall, stor_shortfall10, stor_shortfall22, import_tot, em_dom_tot2223, em_up_tot2223, em_dom_tot2324, em_up_tot2324, em_tot, dr_elec22, dr_ind22, dr_chp22,dr_dom22,dr_com22,dr_elec23, dr_ind23, dr_chp23,dr_dom23,dr_com23
+    """
     else
         conflict_constraint_list = ConstraintRef[]
         for (F, S) in list_of_constraint_types(model)
@@ -729,6 +730,7 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
         end
         return 999, 999, 999
     end
+    """
 end
 
 function demand_builder(sec_reduc_df::AbstractArray, sector_df::AbstractDataFrame, demand_df::AbstractDataFrame, elec_df::AbstractDataFrame, prod_df::AbstractDataFrame)
