@@ -812,7 +812,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_New"
+    post = "Post_Accel_Nuke"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
@@ -822,7 +822,7 @@ function main()
     imports_vol = true
     no_reduc = false
     rus_cut = 2 # 1 is June cut, 2 is oct, 3 is no cut - should be paired with no_reduc as a zero emissions test case
-    EU_stor = true
+    EU_stor = false
     no_turkst = true
     EU_DR_policy = false #not well behaved in this model
     # LNG OPT - FALSE
