@@ -477,12 +477,12 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     K = 10^-3
     @expression(model, tot_russia, imports_rte[rte_russia])
     @expression(model, shortfall_propa[cc= 1:14, t = 1:nmonth], (1/(demand[cc,t])*shortfall[cc,t]))
-    @expression(model, shortfall_propb[cc= 16:21, t = 1:nmonth], (1/(demand[cc,t])*shortfall[cc,t]))
+    @expression(model, shortfall_propb[cc= 16:22, t = 1:nmonth], (1/(demand[cc,t])*shortfall[cc,t]))
     @expression(model, shortfall_propc[cc= 23:leng, t = 1:nmonth], (1/(demand[cc,t])*shortfall[cc,t]))
     #@expression(model, shortfall_t[cc = 1:leng, t = 1:nmonth], (1/sum(demand[cc,t] for t in 1:nmonth))*shortfall[cc,t])
     #@expression(model, shortfall_cc[cc = 1:leng, t = 1:nmonth], (1/sum(demand[cc,t] for cc in 1:leng))*shortfall[cc,t])
     @expression(model, shortfall_prop_suma[cc = 1:14], sum((1/nmonth)*shortfall_propa[cc,t] for t in 1:nmonth))
-    @expression(model, shortfall_prop_sumb[cc = 16:21], sum((1/nmonth)*shortfall_propb[cc,t] for t in 1:nmonth))
+    @expression(model, shortfall_prop_sumb[cc = 16:22], sum((1/nmonth)*shortfall_propb[cc,t] for t in 1:nmonth))
     @expression(model, shortfall_prop_sumc[cc = 23:leng], sum((1/nmonth)*shortfall_propc[cc,t] for t in 1:nmonth))
     #@expression(model, shortfall_prop_P[cc = 1:leng], sum(P*shortfall_prop[cc,t] for t in 1:nmonth))
     #@expression(model, shortfall_prop_PT[t in 1:nmonth], sum(P*shortfall_prop[cc,t] for cc in 1:leng))
@@ -493,7 +493,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
     #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng)) 
-    @expression(model, obj, K*tot_russia +demand_tot+ sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + P*P*sum(shortfall[5,t] for t in 7:13) + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
+    @expression(model, obj, K*tot_russia +demand_tot+ sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:22, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + P*P*sum(shortfall[5,t] for t in 7:13) + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
     @objective(model, Min, obj) # note - includes a weak emissions optimization due to move away from Russian gas  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[5] + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*tot_shortfall 
 
     return model, country_df
@@ -542,9 +542,9 @@ function printout(folder::AbstractString, model::Model, country_df::DataFrame, n
     for i in 1:nrow(country_df)
         if i < 15
             r[i] = ra[i]
-        elseif i == 15 || i == 22
+        elseif i == 15
             r[i] = 0
-        elseif i > 15 && i < 22
+        elseif i > 15 && i <= 22
             r[i] = rb[i]
         elseif i > 22
             r[i] = rc[i]
@@ -807,6 +807,7 @@ function EU_DR_policy(demand_sector_reduc_df::AbstractArray, demand_df::Abstract
     return rqdlevel
 end
 
+""" This branch includes Slovakia """
 
 function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
@@ -822,7 +823,7 @@ function main()
     imports_vol = true
     no_reduc = false
     rus_cut = 2 # 1 is June cut, 2 is oct, 3 is no cut - should be paired with no_reduc as a zero emissions test case
-    EU_stor = true
+    EU_stor = false
     no_turkst = true
     EU_DR_policy = false #not well behaved in this model
     # LNG OPT - FALSE
