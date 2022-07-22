@@ -3,7 +3,7 @@ Code,Country,Column3,Shortfall,Shortfall/Demand
 2,Bulgaria,EU 27,0.0,0.0
 3,Czechia,EU 27,0.0,0.0
 4,Denmark,EU 27,0.0,0.0
-5,Germany,EU 27,2.3726426432581444,0.008061366020808298
+5,Germany,EU 27,0.0,0.0
 6,Estonia,EU 27,0.0,0.0
 7,Greece,EU 27,0.0,0.0
 8,Spain,EU 27,0.0,0.0
@@ -21,9 +21,9 @@ Code,Country,Column3,Shortfall,Shortfall/Demand
 20,Romania,EU 27,0.0,0.0
 21,Slovenia,EU 27,0.0,0.0
 22,Slovakia,EU 27,0.0,0.0
-23,Finland,EU 27,0.12092953434577786,0.02283097244312124
+23,Finland,EU 27,0.46797253980226383,0.12253112526863294
 24,UK,NonEU,0.0,0.0
 25,North Macedonia,NonEU,0.0,0.0
 26,Serbia,NonEU,0.0,0.0
-27,Moldova,NonEU,0.3659615536763159,0.08960583231110297
+27,Moldova,NonEU,0.3596167536445921,0.08833668711789044
 28,Ireland,EU 27,0.0,0.0
