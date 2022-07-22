@@ -688,15 +688,15 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
     # ratio_a, ratio_b = storage_ratios(demand_sector_reduc_df, demand_df)
 
     # Create Model
-    model = Model(CPLEX.Optimizer)
+    model = Model(Clp.Optimizer) # Any LP solver works - best options CPLEX, Clp. Note CPLEX requires license
     model, country_df = initialize_model!(model, demand_sector_reduc_df, stor_df, prod_df, demand_df, trans_in_df, trans_out_df, imports_df, country_df, sector_df, biogas_df, emimp_df, prodem_df, imports_vol, rus_cut, EU_stor, no_turkst, rus_df) #, ratio_a, ratio_b
 
     # Solve
     optimize!(model)
     # Print if feasible
-    compute_conflict!(model)
-    if MOI.get(model, MOI.ConflictStatus()) != MOI.CONFLICT_FOUND
-        print("No conflict could be found for an infeasible model.")
+    #compute_conflict!(model)
+    #if MOI.get(model, MOI.ConflictStatus()) != MOI.CONFLICT_FOUND
+    #    print("No conflict could be found for an infeasible model.")
         printout(folder, model, country_df, nmonths, case)
         tot_LNG = 0.001*value(model[:total_LNG])
         tot_gas = 0.001*value(model[:demand_tot])
@@ -723,7 +723,7 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
         dr_com23 = dr_tot23[5]
         dr_prop = value(model[:demand_reducprop_overall])
         return tot_LNG, tot_gas, tot_shortfall, stor_shortfall10, stor_shortfall22, import_tot, em_dom_tot2223, em_up_tot2223, em_dom_tot2324, em_up_tot2324, em_tot, dr_elec22, dr_ind22, dr_chp22,dr_dom22,dr_com22,dr_elec23, dr_ind23, dr_chp23,dr_dom23,dr_com23,dr_prop
-    
+    """
     else
         conflict_constraint_list = ConstraintRef[]
         for (F, S) in list_of_constraint_types(model)
@@ -736,10 +736,10 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
         end
         return 999, 999, 999
     end
-    
+    """
 end
 
-# TODO - Modify to make 15% reduc available.
+# TODO - Modify to make 15% reduc available. Not well behaved
 
 function demand_builder(sec_reduc_df::AbstractArray, sector_df::AbstractDataFrame, demand_df::AbstractDataFrame, elec_df::AbstractDataFrame, prod_df::AbstractDataFrame, EU_DR_bool::Bool)
     leng = nrow(sector_df)
