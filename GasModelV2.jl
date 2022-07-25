@@ -332,7 +332,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
         @constraint(model, stor_fill_req_b[cc = 1:leng], storage_fill[cc, 19] + storage_gap[cc,2]>= prev_stor_peak*stor_cap[cc]) # :::: ratio_b*
         @constraint(model, stor_gap[cc = 1:leng, m = 1:2], storage_gap[cc,m] == 0)
     end
-    @constraint(model, stor_fill_req_c[cc = 1:leng,t = 1:nmonth], storage_fill[cc, t] >= 0.5*init_stor_fill_prop*stor_cap[cc])
+    @constraint(model, stor_fill_req_c[cc = 1:leng,t = 1:nmonth], storage_fill[cc, t] >= 0.7*init_stor_fill_prop*stor_cap[cc]) #0.5*
+    @constraint(model, stor_fill_loop[cc = 1:leng, t = 24], storage_fill[cc,t] >= init_stor_fill_prop*stor_cap[cc])
     @expression(model, storage_out_tot[t = 1:nmonth], sum(storage_out[cc,t] for cc in 1:leng))
     @expression(model, storage_in_tot[t = 1:nmonth], sum(storage_in[cc,t] for cc in 1:leng))
     @constraint(model, c_max_withdraw[t = 1:nmonth], storage_out_tot[t] <= Days_per_month[t]*max_withdraw_day)
