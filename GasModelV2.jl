@@ -332,7 +332,8 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
         @constraint(model, stor_fill_req_b[cc = 1:leng], storage_fill[cc, 19] + storage_gap[cc,2]>= prev_stor_peak*stor_cap[cc]) # :::: ratio_b*
         @constraint(model, stor_gap[cc = 1:leng, m = 1:2], storage_gap[cc,m] == 0)
     end
-    @constraint(model, stor_fill_req_c[cc = 1:leng,t = 1:nmonth], storage_fill[cc, t] >= 0.5*init_stor_fill_prop*stor_cap[cc])
+    @constraint(model, stor_fill_req_c[cc = 1:leng,t = 1:nmonth], storage_fill[cc, t] >= 0.7*init_stor_fill_prop*stor_cap[cc]) #0.5*
+    @constraint(model, stor_fill_loop[cc = 1:leng, t = 24], storage_fill[cc,t] >= init_stor_fill_prop*stor_cap[cc])
     @expression(model, storage_out_tot[t = 1:nmonth], sum(storage_out[cc,t] for cc in 1:leng))
     @expression(model, storage_in_tot[t = 1:nmonth], sum(storage_in[cc,t] for cc in 1:leng))
     @constraint(model, c_max_withdraw[t = 1:nmonth], storage_out_tot[t] <= Days_per_month[t]*max_withdraw_day)
@@ -391,7 +392,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     rte_turk = rte_russia - 1
     if no_turkst == true
         phased_tkst = [1,1,0.7,0.4,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-        @constraint(model, no_turkstream[t = 1:nmonth], import_country[2,t,rte_russia] <= phased_tkst[t])
+        @constraint(model, no_turkstream[t = 1:nmonth], import_country[2,t,rte_russia] <= phased_tkst[t])# phased_tkst[t])
     end
     
     # Phasing in TANAP Developments
@@ -493,7 +494,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     @expression(model, tot_stor_short22, sum(storage_gap[cc,2] for cc in 1:leng))
     #@expression(model, excess_sum[cc = 1:leng], sum(excess[cc,t] for t in 1:nmonth))
     #@expression(model, obj, K*total_LNG + sum(P*shortfall_prop_P[cc] for cc in 1:leng)) 
-    @expression(model, obj, K*tot_russia +demand_tot+ sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + P*P*sum(shortfall[5,t] for t in 7:13) + tot_stor_short10 + tot_stor_short22)# P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
+    @expression(model, obj, K*tot_russia + sum(P*shortfall_propa[cc,t] for cc in 1:14, t in 1:nmonth)+ sum(P*shortfall_propb[cc,t] for cc in 16:21, t in 1:nmonth)+ sum(P*shortfall_propc[cc,t] for cc in 23:leng, t in 1:nmonth)+ P*P*shortfall_prop_suma[11] + P*P*shortfall_prop_sumb[18] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_suma[3] + P*P*shortfall_prop_sumb[17] + P*P*shortfall_prop_sumb[20] + P*P*sum(shortfall[5,t] for t in 7:13) + tot_stor_short10 + tot_stor_short22)# demand_tot+      P* em_tot+ shortfall_t[cc,t] for cc in 1:leng, t in 1:nmonth)+ P*sum(shortfall_cc[cc,t] for cc in 1:leng, t in 1:nmonth) +-K*total_LNG + K*total_LNG + K*total_LNG  +
     @objective(model, Min, obj) # note - includes a weak emissions optimization due to move away from Russian gas  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[16] +  P*P*shortfall_prop_P[5] + sum(P*shortfall_prop_P[cc] for cc in 1:leng) + P*tot_shortfall 
 
     return model, country_df
@@ -739,7 +740,6 @@ function runner(input_path::AbstractString, post_path::AbstractString, m::Abstra
     """
 end
 
-# TODO - Modify to make 15% reduc available. Not well behaved
 
 function demand_builder(sec_reduc_df::AbstractArray, sector_df::AbstractDataFrame, demand_df::AbstractDataFrame, elec_df::AbstractDataFrame, prod_df::AbstractDataFrame, EU_DR_bool::Bool)
     leng = nrow(sector_df)
@@ -770,9 +770,11 @@ function demand_builder(sec_reduc_df::AbstractArray, sector_df::AbstractDataFram
                 elseif (sec >= 2 && (t < aug || t > april) && sec < 3) || (sec >= 2 && EU_DR_bool == false)
                     demand_sector_reduc_df[cc,t,sec] = sec_reduc_df[cc,t,sec]*sector_df[cc,sec]*demand_df[cc,t]
                 end
+                """
                 if isnan(demand_sector_reduc_df[cc,t,sec]) == true
                     demand_sector_reduc_df[cc,t,sec] = 0
                 end
+                """
             end
         end
     end
@@ -812,7 +814,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_Accel_Hydro_Nuke"
+    post = "Post_Accel_Nuke"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"
