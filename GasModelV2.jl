@@ -294,7 +294,12 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     # print(demand_tot)
 #    @expression(model, demand_eq[cc = 1:leng, t = 1:nmonth], 0.802*demand_df[cc, t])
     @expression(model, prod_eq[cc = 1:leng, t = 1:nmonth], prod_df[cc,t])
-    @expression(model, biogas_eq[cc = 1:leng, t = 1:nmonth], biogas_df[cc,1]*Days_per_month[t]) # Creates biogas in mcm/month
+    nobio = true
+    if nobio == false
+        @expression(model, biogas_eq[cc = 1:leng, t = 1:nmonth], biogas_df[cc,1]*Days_per_month[t]) # Creates biogas in mcm/month
+    elseif nobio == true
+        @expression(model, biogas_eq[cc = 1:leng, t = 1:nmonth], 0.2*biogas_df[cc,1]*Days_per_month[t]) # Creates biogas in mcm/month
+    end
     
     # Introduce import capacity things
     @variable(model, trans_in_country[cct = 1:leng, t = 1:nmonth, ccf = 1:leng] >= 0)
@@ -391,7 +396,7 @@ function initialize_model!(model::Model, demand_sector_reduc_df::AbstractArray, 
     # Turkstream
     rte_turk = rte_russia - 1
     if no_turkst == true
-        phased_tkst = [1,1,0.7,0.4,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        phased_tkst = [1,1,0.7,0.4,0.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] # [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]# 
         @constraint(model, no_turkstream[t = 1:nmonth], import_country[2,t,rte_russia] <= phased_tkst[t])# phased_tkst[t])
     end
     
@@ -814,7 +819,7 @@ function main()
     folder = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model"
     input = "Inputs"
     input_path = joinpath(folder, input)
-    post = "Post_AHNFixed"
+    post = "Post_HNAF"
     post_path = joinpath(input_path, post)
     outputs = "Outputs"
     lngcsv = "plotting_allcases.csv"

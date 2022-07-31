@@ -1,8 +1,8 @@
 using CSV, DelimitedFiles, DataFrames
 
 Post_path2022() = "C:\\Users\\mike_\\Downloads\\Post_2223_Hydro_Nuk_FIXED"
-Post_path2023() = "C:\\Users\\mike_\\Downloads\\Post_2324_Hydro_Nuk_FIXED"
-Output_path() = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model\\Inputs\\Post_AHNFixed"
+Post_path2023() = "C:\\Users\\mike_\\Downloads\\Post_2324_HNAF"
+Output_path() = "C:\\Users\\mike_\\Documents\\ZeroLab\\EU_Gas_Model\\Inputs\\Post_HNAF"
 CSVdf(path::AbstractString) = CSV.read(path, header = 1, DataFrame)
 dfCSV(path::AbstractString, df::DataFrame) = CSV.write(path, df)
 
